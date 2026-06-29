@@ -5,7 +5,7 @@ const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // DB 초기화
 const adapter = new FileSync('db.json');
@@ -34,7 +34,7 @@ app.get('/api/reviews', (req, res) => {
   res.json({ reviews: paginated, total, page: Number(page) });
 });
 
-// 후기 작성
+// 후기 작성ㅈ
 app.post('/api/reviews', (req, res) => {
   const {
     facility_name, facility_type, region,
