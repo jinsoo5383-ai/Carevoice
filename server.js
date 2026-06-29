@@ -90,3 +90,46 @@ app.post('/api/reviews/:id/report', (req, res) => {
 app.listen(PORT, () => {
   console.log(`케어보이스 서버 실행: http://localhost:${PORT}`);
 });
+// 요양기관 검색 API
+app.get('/api/facilities/search', async (req, res) => {
+  const { keyword, region, type, page = 1 } = req.query;
+  const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
+  
+  try {
+    const params = new URLSearchParams({
+      ServiceKey: serviceKey,
+      pageNo: page,
+      numOfRows: 10,
+      resultType: 'json'
+    });
+    
+    if (keyword) params.append('LtcInsttNm', keyword);
+    if (region) params.append('siDoCd', region);
+    if (type) params.append('longTermCareInsttSecd', type);
+
+    const response = await fetch(`https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttList?${params}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: '요양기관 데이터를 불러오는데 실패했습니다.' });
+  }
+});
+
+// 요양기관 상세조회 API
+app.get('/api/facilities/:id', async (req, res) => {
+  const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
+  
+  try {
+    const params = new URLSearchParams({
+      ServiceKey: serviceKey,
+      resultType: 'json',
+      LtcInsttNo: req.params.id
+    });
+
+    const response = await fetch(`https://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/getLtcInsttDetailInfo?${params}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: '상세 정보를 불러오는데 실패했습니다.' });
+  }
+});
