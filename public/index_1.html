@@ -1025,7 +1025,6 @@
   let facilityPage = 1;
   let facilityKeyword = '';
   let facilityRegion = '';
-  let facilityItemsAccum = [];
   let currentSelectedFacility = '';
 
   function renderFacilityCards(items, append) {
@@ -1055,19 +1054,24 @@
     }
   }
 
-  async function searchFacilities(isLoadMore) {
+  let facilityTotalCount = 0;
+
+  async function searchFacilities(targetPage) {
     const container = document.getElementById('facilities-container');
     const countEl = document.getElementById('facility-result-count');
-    const loadMoreWrap = document.getElementById('facility-load-more-wrap');
+    const pagerWrap = document.getElementById('facility-load-more-wrap');
+    const isPageChange = typeof targetPage === 'number';
 
-    if (!isLoadMore) {
+    if (!isPageChange) {
       facilityKeyword = document.getElementById('search-input').value.trim();
       facilityRegion = document.getElementById('filter-region').value;
       facilityPage = 1;
-      facilityItemsAccum = [];
-      container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
-      loadMoreWrap.innerHTML = '';
+    } else {
+      facilityPage = targetPage;
     }
+
+    container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
+    pagerWrap.innerHTML = '';
 
     try {
       const params = new URLSearchParams();
@@ -1079,36 +1083,69 @@
       const data = await res.json();
 
       if (!data.items || data.items.length === 0) {
-        if (!isLoadMore) {
-          container.innerHTML = `<div class="facility-notice">${data.notice || '검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.'}</div>`;
-          countEl.textContent = '';
-        }
-        loadMoreWrap.innerHTML = '';
+        container.innerHTML = `<div class="facility-notice">${data.notice || '검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.'}</div>`;
+        countEl.textContent = '';
         return;
       }
 
-      facilityItemsAccum = isLoadMore ? facilityItemsAccum.concat(data.items) : data.items;
-      countEl.textContent = `총 ${data.totalCount.toLocaleString()}개${facilityItemsAccum.length < data.totalCount ? ` 중 ${facilityItemsAccum.length}개 표시` : ''}`;
+      facilityTotalCount = data.totalCount;
+      countEl.textContent = `총 ${data.totalCount.toLocaleString()}개`;
 
-      renderFacilityCards(data.items, isLoadMore);
+      renderFacilityCards(data.items, false);
 
       if (data.notice) {
-        loadMoreWrap.innerHTML = `<div class="facility-notice" style="margin-top:10px;">${data.notice}</div>`;
-      } else if (data.hasMore) {
-        loadMoreWrap.innerHTML = `<button class="action-btn" style="padding:8px 24px; font-size:13px;" onclick="loadMoreFacilities()">더 보기</button>`;
+        pagerWrap.innerHTML = `<div class="facility-notice" style="margin-top:10px;">${data.notice}</div>`;
       } else {
-        loadMoreWrap.innerHTML = '';
+        renderPager(facilityPage, data.totalCount, 20);
+      }
+
+      if (isPageChange) {
+        const anchor = document.getElementById('facilities-container');
+        window.scrollTo({ top: anchor.offsetTop - 70, behavior: 'smooth' });
       }
     } catch (err) {
-      if (!isLoadMore) {
-        container.innerHTML = '<div class="facility-notice">검색 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.</div>';
-      }
+      container.innerHTML = '<div class="facility-notice">검색 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.</div>';
     }
   }
 
-  function loadMoreFacilities() {
-    facilityPage += 1;
-    searchFacilities(true);
+  function renderPager(current, totalCount, perPage) {
+    const pagerWrap = document.getElementById('facility-load-more-wrap');
+    const totalPages = Math.ceil(totalCount / perPage);
+    if (totalPages <= 1) { pagerWrap.innerHTML = ''; return; }
+
+    const windowSize = 5;
+    let start = Math.max(1, current - Math.floor(windowSize / 2));
+    let end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+
+    let html = '<div style="display:flex; gap:6px; justify-content:center; align-items:center; flex-wrap:wrap;">';
+
+    html += `<button class="action-btn" ${current === 1 ? 'disabled style="opacity:.4;"' : ''} onclick="goToFacilityPage(${current - 1})">이전</button>`;
+
+    if (start > 1) {
+      html += `<button class="action-btn" onclick="goToFacilityPage(1)">1</button>`;
+      if (start > 2) html += `<span style="color:var(--text-muted); font-size:13px;">...</span>`;
+    }
+
+    for (let p = start; p <= end; p++) {
+      const isCurrent = p === current;
+      html += `<button class="action-btn" style="${isCurrent ? 'background:var(--primary); color:white; border-color:var(--primary);' : ''}" onclick="goToFacilityPage(${p})">${p}</button>`;
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages - 1) html += `<span style="color:var(--text-muted); font-size:13px;">...</span>`;
+      html += `<button class="action-btn" onclick="goToFacilityPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `<button class="action-btn" ${current === totalPages ? 'disabled style="opacity:.4;"' : ''} onclick="goToFacilityPage(${current + 1})">다음</button>`;
+
+    html += '</div>';
+    pagerWrap.innerHTML = html;
+  }
+
+  function goToFacilityPage(p) {
+    if (p < 1) return;
+    searchFacilities(p);
   }
 
   function formatYmd(str) {
