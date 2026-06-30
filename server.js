@@ -35,7 +35,7 @@ app.get('/api/reviews', (req, res) => {
   res.json({ reviews: paginated, total, page: Number(page) });
 });
 
-// 후기 작성ㅈ
+// 후기 작성
 app.post('/api/reviews', (req, res) => {
   const {
     facility_name, facility_type, region,
@@ -88,49 +88,75 @@ app.post('/api/reviews/:id/report', (req, res) => {
   res.json({ success: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`케어보이스 서버 실행: http://localhost:${PORT}`);
-});
-// 요양기관 검색 API
+// 간단한 XML 파서 (item들을 객체 배열로 변환)
+function parseXmlItems(xml) {
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const itemXml = match[1];
+    const obj = {};
+    const fieldRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
+    let fieldMatch;
+    while ((fieldMatch = fieldRegex.exec(itemXml)) !== null) {
+      obj[fieldMatch[1]] = fieldMatch[2].trim();
+    }
+    items.push(obj);
+  }
+  const totalCountMatch = xml.match(/<totalCount>(\d+)<\/totalCount>/);
+  const totalCount = totalCountMatch ? Number(totalCountMatch[1]) : 0;
+  return { items, totalCount };
+}
+
+// 요양기관 검색 API (건보공단 공공데이터)
 app.get('/api/facilities/search', async (req, res) => {
-  const { keyword, region, type, page = 1 } = req.query;
+  const { keyword, region, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
-  
+
   try {
     const params = new URLSearchParams({
       ServiceKey: serviceKey,
       pageNo: page,
-      numOfRows: 10,
-      resultType: 'json'
+      numOfRows: 10
     });
-    
-    if (keyword) params.append('LtcInsttNm', keyword);
-    if (region) params.append('siDoCd', region);
-    if (type) params.append('longTermCareInsttSecd', type);
 
-    const response = await fetch(`https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttList?${params}`);
-    const data = await response.json();
-    res.json(data);
+    if (keyword) params.append('adminNm', keyword);
+    if (region) params.append('siDoCd', region);
+
+    const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+
+    const { items, totalCount } = parseXmlItems(xmlText);
+    res.json({ items, totalCount, page: Number(page) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: '요양기관 데이터를 불러오는데 실패했습니다.' });
   }
 });
 
-// 요양기관 상세조회 API
-app.get('/api/facilities/:id', async (req, res) => {
+// 요양기관 상세조회 API (건보공단 공공데이터)
+app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
-  
+
   try {
     const params = new URLSearchParams({
       ServiceKey: serviceKey,
-      resultType: 'json',
-      LtcInsttNo: req.params.id
+      longTermAdminSym: req.params.longTermAdminSym
     });
 
-    const response = await fetch(`https://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/getLtcInsttDetailInfo?${params}`);
-    const data = await response.json();
-    res.json(data);
+    const url = `https://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/getLtcInsttDetailInfo02?${params}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+
+    const { items } = parseXmlItems(xmlText);
+    res.json({ item: items[0] || null });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: '상세 정보를 불러오는데 실패했습니다.' });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`케어보이스 서버 실행: http://localhost:${PORT}`);
 });
