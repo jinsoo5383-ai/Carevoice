@@ -1027,8 +1027,9 @@
     const countEl = document.getElementById('facility-result-count');
 
     if (!keyword && !region) {
-      container.innerHTML = '';
+      container.innerHTML = '<div class="facility-notice">📍 지역을 선택하면 해당 지역의 요양시설을 바로 둘러볼 수 있어요. 시설명을 아신다면 검색어로 입력해주세요.</div>';
       countEl.textContent = '';
+      document.getElementById('filter-region').focus();
       return;
     }
 
@@ -1087,9 +1088,6 @@
     document.getElementById('f-name').value = name;
     window.scrollTo({ top: document.querySelector('.main').offsetTop - 60, behavior: 'smooth' });
   }
-
-  // 초기 로딩
-  loadReviews();
 
   document.getElementById('search-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') searchFacilities();
@@ -1197,7 +1195,9 @@
     return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // 초기 로딩
+  // 초기 로딩: 기본으로 서울 지역 시설을 보여줌
+  document.getElementById('filter-region').value = '11';
+  searchFacilities();
   loadReviews();
 </script>
 </body>
