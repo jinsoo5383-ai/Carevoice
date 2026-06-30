@@ -378,6 +378,69 @@ app.get('/api/facilities/location', async (req, res) => {
   }
 });
 
+// 추천시설: 같은 지역(siDoCd) + 같은 서비스유형(adminPttnCd)의 다른 시설 몇 곳을 보여줌
+app.get('/api/facilities/recommend', async (req, res) => {
+  const { region, type, exclude } = req.query;
+  const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
+
+  if (!region) return res.json({ items: [] });
+
+  try {
+    const params = new URLSearchParams({
+      ServiceKey: serviceKey,
+      pageNo: 1,
+      numOfRows: 8,
+      siDoCd: region
+    });
+
+    const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+    const { items } = parseXmlItems(xmlText);
+
+    let filtered = items.filter(it => it.longTermAdminSym !== exclude);
+    if (type) filtered = filtered.filter(it => it.adminPttnCd === type);
+
+    const grouped = groupByFacility(filtered).slice(0, 4);
+    res.json({ items: grouped });
+  } catch (err) {
+    console.error(err);
+    res.json({ items: [] });
+  }
+});
+
+// 이 시설 관련 네이버 블로그 글 모음 (제목/요약/링크만 제공, 원문은 외부 링크로 이동)
+app.get('/api/facilities/blogs', async (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.json({ items: [] });
+
+  try {
+    const params = new URLSearchParams({ query: name, display: 5, sort: 'sim' });
+    const url = `https://openapi.naver.com/v1/search/blog.json?${params}`;
+    const response = await fetch(url, {
+      headers: {
+        'X-Naver-Client-Id': NAVER_SEARCH_CLIENT_ID,
+        'X-Naver-Client-Secret': NAVER_SEARCH_CLIENT_SECRET
+      }
+    });
+    if (!response.ok) return res.json({ items: [] });
+    const data = await response.json();
+
+    const items = (data.items || []).map(item => ({
+      title: stripHtmlTags(item.title),
+      summary: stripHtmlTags(item.description),
+      link: item.link,
+      bloggerName: item.bloggername || '',
+      postDate: item.postdate || ''
+    }));
+
+    res.json({ items });
+  } catch (err) {
+    console.error(err);
+    res.json({ items: [] });
+  }
+});
+
 // 단일 item(배열 아님) 응답 파서: <item>...</item> 하나만 있는 응답용
 function parseXmlSingleItem(xml) {
   const match = xml.match(/<item>([\s\S]*?)<\/item>/);
