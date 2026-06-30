@@ -110,20 +110,26 @@ function parseXmlItems(xml) {
 
 // 전국 17개 시도 코드 (법정동 코드 기준)
 const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','43','44','46','47','48','50','51','52'];
+const SIDO_NAMES = {
+  '11':'서울','26':'부산','27':'대구','28':'인천','29':'광주','30':'대전',
+  '31':'울산','36':'세종','41':'경기','43':'충북','44':'충남','46':'전남',
+  '47':'경북','48':'경남','50':'제주','51':'강원','52':'전북'
+};
 
 // 요양기관 검색 API (건보공단 공공데이터)
-// region 파라미터가 없으면 keyword로 전국(17개 시도)을 순회 검색합니다.
+// - region 지정: 해당 지역만, 서버 페이지네이션(10건씩) 그대로 사용
+// - region 미지정(전국): 17개 시도를 시도당 N건씩 순회 수집 (키워드 유무 상관없이 동작)
 app.get('/api/facilities/search', async (req, res) => {
   const { keyword, region, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
 
   try {
-    // 지역이 지정된 경우: 해당 지역만 검색 (페이지네이션 그대로 사용)
+    // 지역이 지정된 경우: 해당 지역만 검색, 서버 자체 페이지네이션 사용
     if (region) {
       const params = new URLSearchParams({
         ServiceKey: serviceKey,
         pageNo: page,
-        numOfRows: 10,
+        numOfRows: 20,
         siDoCd: region
       });
       if (keyword) params.append('adminNm', keyword);
@@ -132,36 +138,45 @@ app.get('/api/facilities/search', async (req, res) => {
       const response = await fetch(url);
       const xmlText = await response.text();
       const { items, totalCount } = parseXmlItems(xmlText);
-      return res.json({ items, totalCount, page: Number(page) });
+      const itemsWithRegionName = items.map(it => ({ ...it, siDoNm: SIDO_NAMES[it.siDoCd] || '' }));
+      return res.json({
+        items: itemsWithRegionName,
+        totalCount,
+        page: Number(page),
+        hasMore: Number(page) * 20 < totalCount
+      });
     }
 
-    // 지역이 지정되지 않은 경우: keyword가 있어야 전국 순회 검색 (시도코드 필수라서)
-    if (!keyword) {
-      return res.json({ items: [], totalCount: 0, page: Number(page), notice: '검색어 또는 지역을 입력해주세요.' });
-    }
-
+    // 전국: 17개 시도를 순회. 시도당 가져오는 양은 적게(5건) 잡아서 응답 속도를 확보.
+    // keyword가 있으면 시도별 필터링되어 더 적은 결과, 없으면 각 지역 최신 5건씩 골고루 섞임.
     let allItems = [];
     for (const siDoCd of SIDO_CODES) {
       const params = new URLSearchParams({
         ServiceKey: serviceKey,
         pageNo: 1,
-        numOfRows: 20,
-        siDoCd,
-        adminNm: keyword
+        numOfRows: 5,
+        siDoCd
       });
+      if (keyword) params.append('adminNm', keyword);
+
       const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
       try {
         const response = await fetch(url);
         const xmlText = await response.text();
         const { items } = parseXmlItems(xmlText);
-        allItems = allItems.concat(items);
+        allItems = allItems.concat(items.map(it => ({ ...it, siDoNm: SIDO_NAMES[siDoCd] || '' })));
       } catch (innerErr) {
-        // 개별 지역 실패는 무시하고 계속 진행
         console.error(`siDoCd ${siDoCd} 검색 실패:`, innerErr.message);
       }
     }
 
-    res.json({ items: allItems, totalCount: allItems.length, page: 1 });
+    res.json({
+      items: allItems,
+      totalCount: allItems.length,
+      page: 1,
+      hasMore: false,
+      notice: keyword ? null : '전국 결과는 지역별로 일부만 모아 보여드려요. 더 많은 결과를 보려면 지역을 선택해주세요.'
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '요양기관 데이터를 불러오는데 실패했습니다.' });

@@ -760,11 +760,13 @@
     <span class="review-count" id="facility-result-count"></span>
   </div>
   <div id="facilities-container"></div>
+  <div id="facility-load-more-wrap" style="text-align:center; margin: 12px 0;"></div>
 
   <div class="section-header" style="margin-top:32px;">
     <span class="section-title">최근 후기</span>
     <span class="review-count" id="result-count"></span>
   </div>
+  <div id="reviews-section-anchor"></div>
   <div id="reviews-container"></div>
 </div>
 
@@ -1020,60 +1022,93 @@
     return map[code] || { label: '재가/복지기관', cls: 'etc' };
   }
 
-  async function searchFacilities() {
-    const keyword = document.getElementById('search-input').value.trim();
-    const region = document.getElementById('filter-region').value;
+  let facilityPage = 1;
+  let facilityKeyword = '';
+  let facilityRegion = '';
+  let facilityItemsAccum = [];
+  let currentSelectedFacility = '';
+
+  function renderFacilityCards(items, append) {
+    const container = document.getElementById('facilities-container');
+    const cardsHtml = items.map(item => {
+      const type = adminTypeInfo(item.adminPttnCd);
+      const regionTag = item.siDoNm ? `<span class="facility-card-date">${item.siDoNm}</span>` : '';
+      return `
+        <div class="facility-card">
+          <div class="facility-card-info">
+            <div class="facility-card-name">${item.adminNm}</div>
+            <div class="facility-card-meta">
+              <span class="facility-type-tag ${type.cls}">${type.label}</span>
+              ${regionTag}
+              <span class="facility-card-date">지정일 ${formatYmd(item.longTermPeribRgtDt)}</span>
+            </div>
+          </div>
+          <button class="facility-card-btn" onclick="goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
+        </div>
+      `;
+    }).join('');
+
+    if (append) {
+      container.insertAdjacentHTML('beforeend', cardsHtml);
+    } else {
+      container.innerHTML = cardsHtml;
+    }
+  }
+
+  async function searchFacilities(isLoadMore) {
     const container = document.getElementById('facilities-container');
     const countEl = document.getElementById('facility-result-count');
+    const loadMoreWrap = document.getElementById('facility-load-more-wrap');
 
-    if (!keyword && !region) {
-      container.innerHTML = '<div class="facility-notice">📍 지역을 선택하면 해당 지역의 요양시설을 바로 둘러볼 수 있어요. 시설명을 아신다면 검색어로 입력해주세요.</div>';
-      countEl.textContent = '';
-      document.getElementById('filter-region').focus();
-      return;
+    if (!isLoadMore) {
+      facilityKeyword = document.getElementById('search-input').value.trim();
+      facilityRegion = document.getElementById('filter-region').value;
+      facilityPage = 1;
+      facilityItemsAccum = [];
+      container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
+      loadMoreWrap.innerHTML = '';
     }
-
-    container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
 
     try {
       const params = new URLSearchParams();
-      if (keyword) params.append('keyword', keyword);
-      if (region) params.append('region', region);
+      if (facilityKeyword) params.append('keyword', facilityKeyword);
+      if (facilityRegion) params.append('region', facilityRegion);
+      params.append('page', facilityPage);
 
       const res = await fetch(`/api/facilities/search?${params}`);
       const data = await res.json();
 
-      if (data.notice) {
-        container.innerHTML = `<div class="facility-notice">${data.notice}</div>`;
-        countEl.textContent = '';
-        return;
-      }
-
-      countEl.textContent = `총 ${data.totalCount.toLocaleString()}개`;
-
       if (!data.items || data.items.length === 0) {
-        container.innerHTML = `<div class="facility-notice">검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.</div>`;
+        if (!isLoadMore) {
+          container.innerHTML = `<div class="facility-notice">검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.</div>`;
+          countEl.textContent = '';
+        }
+        loadMoreWrap.innerHTML = '';
         return;
       }
 
-      container.innerHTML = data.items.slice(0, 30).map(item => {
-        const type = adminTypeInfo(item.adminPttnCd);
-        return `
-          <div class="facility-card">
-            <div class="facility-card-info">
-              <div class="facility-card-name">${item.adminNm}</div>
-              <div class="facility-card-meta">
-                <span class="facility-type-tag ${type.cls}">${type.label}</span>
-                <span class="facility-card-date">지정일 ${formatYmd(item.longTermPeribRgtDt)}</span>
-              </div>
-            </div>
-            <button class="facility-card-btn" onclick="goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
-          </div>
-        `;
-      }).join('');
+      facilityItemsAccum = isLoadMore ? facilityItemsAccum.concat(data.items) : data.items;
+      countEl.textContent = `총 ${data.totalCount.toLocaleString()}개${facilityItemsAccum.length < data.totalCount ? ` 중 ${facilityItemsAccum.length}개 표시` : ''}`;
+
+      renderFacilityCards(data.items, isLoadMore);
+
+      if (data.notice) {
+        loadMoreWrap.innerHTML = `<div class="facility-notice" style="margin-top:10px;">${data.notice}</div>`;
+      } else if (data.hasMore) {
+        loadMoreWrap.innerHTML = `<button class="action-btn" style="padding:8px 24px; font-size:13px;" onclick="loadMoreFacilities()">더 보기</button>`;
+      } else {
+        loadMoreWrap.innerHTML = '';
+      }
     } catch (err) {
-      container.innerHTML = '<div class="facility-notice">검색 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.</div>';
+      if (!isLoadMore) {
+        container.innerHTML = '<div class="facility-notice">검색 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.</div>';
+      }
     }
+  }
+
+  function loadMoreFacilities() {
+    facilityPage += 1;
+    searchFacilities(true);
   }
 
   function formatYmd(str) {
@@ -1084,9 +1119,11 @@
   function goWriteReviewFor(name) {
     document.getElementById('search-input').value = name;
     currentQuery = { facility_name: name };
+    currentSelectedFacility = name;
     loadReviews();
     document.getElementById('f-name').value = name;
-    window.scrollTo({ top: document.querySelector('.main').offsetTop - 60, behavior: 'smooth' });
+    const anchor = document.getElementById('reviews-section-anchor');
+    window.scrollTo({ top: anchor.offsetTop - 70, behavior: 'smooth' });
   }
 
   document.getElementById('search-input').addEventListener('keydown', e => {
@@ -1104,11 +1141,15 @@
     const container = document.getElementById('reviews-container');
 
     if (reviews.length === 0) {
+      const nameLine = currentSelectedFacility
+        ? `<div class="empty-title">"${currentSelectedFacility}"에 아직 후기가 없어요</div>`
+        : `<div class="empty-title">아직 후기가 없어요</div>`;
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">💬</div>
-          <div class="empty-title">아직 후기가 없어요</div>
+          ${nameLine}
           <div class="empty-desc">이 시설을 이용해보셨나요?<br>첫 번째 솔직한 후기를 남겨주세요!</div>
+          <button class="btn-write" style="margin-top:14px;" onclick="openModal()">후기 쓰기</button>
         </div>`;
       return;
     }
