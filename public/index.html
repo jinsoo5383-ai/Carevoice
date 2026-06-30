@@ -608,6 +608,81 @@
     .detail-cta .primary { background: var(--primary); color: white; }
     .detail-cta .secondary { background: var(--bg); color: var(--primary); }
 
+    /* 평가정보 */
+    .eval-summary-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .eval-grade-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      background: var(--primary);
+    }
+    .eval-grade-circle.grade-A { background: #2D6A4F; }
+    .eval-grade-circle.grade-B { background: #52B788; }
+    .eval-grade-circle.grade-C { background: #F4A261; }
+    .eval-grade-circle.grade-D { background: #E76F00; }
+    .eval-grade-circle.grade-E { background: #E63946; }
+    .eval-total-score {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .eval-date {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .eval-score-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .eval-score-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .eval-score-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      width: 96px;
+      flex-shrink: 0;
+    }
+    .eval-score-bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .eval-score-bar-fill {
+      height: 100%;
+      background: var(--primary-light);
+      border-radius: 3px;
+    }
+    .eval-score-value {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      width: 42px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
     /* 상세 전용 페이지 레이아웃 */
     .detail-page-wrap {
       max-width: 760px;
@@ -1209,6 +1284,62 @@
 
     const isResidential = ['A03', 'A04'].includes(d.adminPttnCd);
 
+    // 건보공단 평가결과 기반 등급 배지 + 세부지표 막대그래프
+    const evalScoreLabels = {
+      '기관운영': '기관운영',
+      '환경및안전': '환경 및 안전',
+      '수급자권리보장': '수급자 권리보장',
+      '급여제공과정': '급여제공 과정',
+      '급여제공결과': '급여제공 결과'
+    };
+
+    const evaluationHtml = (() => {
+      if (!d.evaluation) return '';
+      const ev = d.evaluation;
+      const scoreRows = Object.entries(ev.scores || {})
+        .filter(([, v]) => v !== '' && v !== null && v !== undefined)
+        .map(([k, v]) => `
+          <div class="eval-score-row">
+            <span class="eval-score-label">${evalScoreLabels[k] || k}</span>
+            <div class="eval-score-bar-track"><div class="eval-score-bar-fill" style="width:${Math.min(100, Number(v))}%;"></div></div>
+            <span class="eval-score-value">${v}점</span>
+          </div>
+        `).join('');
+
+      return `
+        <div class="detail-section">
+          <div class="detail-section-title">평가 정보 <span style="font-size:11px; color:var(--text-muted); font-weight:400;">(${ev.evalType || ''})</span></div>
+          <div class="eval-summary-box">
+            <div class="eval-grade-circle grade-${ev.grade}">${ev.grade}등급</div>
+            <div class="eval-summary-text">
+              <div class="eval-total-score">총점 ${ev.totalScore}점</div>
+              <div class="eval-date">평가일 ${ev.evalDate}</div>
+            </div>
+          </div>
+          ${scoreRows ? `<div class="eval-score-list">${scoreRows}</div>` : ''}
+          <div class="detail-empty-note" style="margin-top:8px;">국민건강보험공단 장기요양기관 평가결과를 활용해 제공돼요.</div>
+        </div>
+      `;
+    })();
+
+    // 평가점수를 바탕으로 한 조건특징 태그 (90점 이상인 항목만 강점으로 표시)
+    const conditionTagsHtml = (() => {
+      if (!d.evaluation || !d.evaluation.scores) return '';
+      const tagMap = {
+        '기관운영': '운영이 체계적인 시설',
+        '환경및안전': '안전 관리가 우수한 시설',
+        '수급자권리보장': '수급자 권리를 존중하는 시설',
+        '급여제공과정': '돌봄 과정이 전문적인 시설',
+        '급여제공결과': '이용 만족도가 높은 시설'
+      };
+      const tags = Object.entries(d.evaluation.scores)
+        .filter(([, v]) => v !== '' && Number(v) >= 90)
+        .map(([k]) => tagMap[k])
+        .filter(Boolean);
+      if (tags.length === 0) return '';
+      return `<div class="detail-tags" style="margin-top:6px;">${tags.map(t => `<span class="facility-type-tag etc">${t}</span>`).join('')}</div>`;
+    })();
+
     const occupancyHtml = (() => {
       if (!d.occupancy) return '<div class="detail-empty-note">입소 현황 정보가 없어요.</div>';
       const totalUsing = d.occupancy.현원남 + d.occupancy.현원여;
@@ -1295,11 +1426,14 @@
           <div class="detail-tags">
             <span class="facility-type-tag ${type.cls}">${type.label}</span>
           </div>
+          ${conditionTagsHtml}
           <div class="detail-contact-row">
             <div id="detail-address-line">📍 주소 확인 중...</div>
             ${contactLines.map(l => `<div>${l}</div>`).join('')}
           </div>
         </div>
+
+        ${evaluationHtml}
 
         <div class="detail-section">
           <div class="detail-section-title">${isResidential ? '입소 현황' : '이용 현황'}</div>

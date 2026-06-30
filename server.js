@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 
@@ -12,6 +13,15 @@ const PORT = process.env.PORT || 3000;
 const adapter = new FileSync('db.json');
 const db = low(adapter);
 db.defaults({ reviews: [], reports: [], nextId: 1 }).write();
+
+// 건보공단 장기요양기관 평가결과 (CSV → JSON 가공, 기관코드별 최신 평가만)
+let evaluationData = {};
+try {
+  evaluationData = JSON.parse(fs.readFileSync(path.join(__dirname, 'evaluations.json'), 'utf8'));
+  console.log(`평가정보 로드 완료: ${Object.keys(evaluationData).length}개 기관`);
+} catch (err) {
+  console.error('평가정보 파일을 불러오지 못했습니다:', err.message);
+}
 
 app.use(cors());
 app.use(express.json());
@@ -505,7 +515,9 @@ app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
         maker: item.mnftcr || '',
         model: item.modelNm || '',
         usage: item.useNm || ''
-      }))
+      })),
+
+      evaluation: evaluationData[longTermAdminSym] || null
     };
 
     res.json({ item: result });
