@@ -207,27 +207,138 @@ app.get('/api/facilities/search', async (req, res) => {
   }
 });
 
-// 요양기관 상세조회 API (건보공단 공공데이터)
+// 단일 item(배열 아님) 응답 파서: <item>...</item> 하나만 있는 응답용
+function parseXmlSingleItem(xml) {
+  const match = xml.match(/<item>([\s\S]*?)<\/item>/);
+  if (!match) return null;
+  const obj = {};
+  const fieldRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
+  let fieldMatch;
+  while ((fieldMatch = fieldRegex.exec(match[1])) !== null) {
+    obj[fieldMatch[1]] = fieldMatch[2].trim();
+  }
+  return obj;
+}
+
+async function fetchDetailEndpoint(endpoint, serviceKey, longTermAdminSym, adminPttnCd, isList) {
+  const params = new URLSearchParams({
+    ServiceKey: serviceKey,
+    longTermAdminSym,
+    adminPttnCd
+  });
+  const url = `https://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/${endpoint}?${params}`;
+  const response = await fetch(url);
+  const xmlText = await response.text();
+  if (isList) {
+    const { items } = parseXmlItems(xmlText);
+    return items;
+  }
+  return parseXmlSingleItem(xmlText);
+}
+
+// 시설 상세정보 종합 API: 6개 공공데이터 엔드포인트를 병렬 호출해 한 번에 합쳐서 반환
 app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
+  const { longTermAdminSym } = req.params;
+  const { adminPttnCd } = req.query;
+
+  if (!adminPttnCd) {
+    return res.status(400).json({ error: '기관유형코드(adminPttnCd)가 필요합니다.' });
+  }
 
   try {
-    const params = new URLSearchParams({
-      ServiceKey: serviceKey,
-      longTermAdminSym: req.params.longTermAdminSym
-    });
+    const [general, staff, facility, occupancy, programs, etc] = await Promise.allSettled([
+      fetchDetailEndpoint('getGeneralSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
+      fetchDetailEndpoint('getStaffSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
+      fetchDetailEndpoint('getInsttSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
+      fetchDetailEndpoint('getAceptncNmprDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
+      fetchDetailEndpoint('getProgramSttusDetailInfoList02', serviceKey, longTermAdminSym, adminPttnCd, true),
+      fetchDetailEndpoint('getInsttEtcDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false)
+    ]);
 
-    const url = `https://apis.data.go.kr/B550928/getLtcInsttDetailInfoService02/getLtcInsttDetailInfo02?${params}`;
-    const response = await fetch(url);
-    const xmlText = await response.text();
+    const g = general.status === 'fulfilled' ? general.value : null;
+    const s = staff.status === 'fulfilled' ? staff.value : null;
+    const f = facility.status === 'fulfilled' ? facility.value : null;
+    const o = occupancy.status === 'fulfilled' ? occupancy.value : null;
+    const p = programs.status === 'fulfilled' ? programs.value : [];
+    const e = etc.status === 'fulfilled' ? etc.value : null;
 
-    const { items } = parseXmlItems(xmlText);
-    res.json({ item: items[0] || null });
+    // 전화번호 조합
+    let phone = '';
+    if (g && g.locTelNo_1) {
+      phone = [g.locTelNo_1, g.locTelNo_2, g.locTelNo_3].filter(Boolean).join('-');
+    }
+
+    const result = {
+      adminNm: (g && g.adminNm) || '',
+      adminPttnCd,
+      siDoCd: (g && g.siDoCd) || '',
+      siDoNm: SIDO_NAMES[(g && g.siDoCd) || ''] || '',
+      phone,
+      registeredDate: g ? formatYmdServer(g.longTermPeribRgtDt) : '',
+      reportedDate: g ? formatYmdServer(g.stpRptDt) : '',
+
+      staff: s ? {
+        간호사: Number(s.nur || 0),
+        간호조무사: Number(s.nurArticle || 0),
+        사회복지사: Number(s.socWel || 0),
+        물리치료사: Number(s.physicalMTret || 0),
+        작업치료사: Number(s.wrkMTret || 0),
+        영양사: Number(s.nut || 0),
+        조리원: Number(s.cook || 0),
+        위생원: Number(s.hygiPrsn || 0),
+        사무원: Number(s.ofceEmp || 0),
+        관리인: Number(s.mgmtPrsn || 0),
+        시설장: Number(s.hdOfce || 0),
+        요양보호사1급: Number(s.recuProt_1 || 0),
+        요양보호사2급: Number(s.recuProt_2 || 0),
+        의사촉탁: Number(s.chrgDoc || 0),
+        의사전임: Number(s.chargeDoc || 0)
+      } : null,
+
+      facility: f ? {
+        '1인실': Number(f.prsnRoomreal1 || 0),
+        '2인실': Number(f.prsnRoomreal2 || 0),
+        '3인실': Number(f.prsnRoomreal3 || 0),
+        '4인실이상': Number(f.prsnRoomreal4 || 0),
+        화장실: Number(f.batRoom || 0),
+        '의료/간호실': Number(f.medRoomreal || 0),
+        프로그램실: Number(f.pgmRoomreal || 0),
+        사무실: Number(f.ofce || 0),
+        기능훈련실: Number(f.funcTrnRoomreal || 0)
+      } : null,
+
+      occupancy: o ? {
+        정원: Number(o.totPer || 0),
+        현원남: Number(o.maNowPer || 0),
+        현원여: Number(o.fmNowPer || 0),
+        대기남: Number(o.maRsvPer || 0),
+        대기여: Number(o.frsvPer || 0)
+      } : null,
+
+      programs: (p || []).map(item => ({
+        name: item.pgmTtl || item.pgmKndNm || '프로그램',
+        target: item.pgmTrgtPer || '',
+        cycle: item.pgmCycle || '',
+        place: item.pgmPlace || ''
+      })),
+
+      homepage: (e && e.hmpgAddr && e.hmpgAddr !== '없음') ? e.hmpgAddr : '',
+      parking: (e && e.pkngEquip) || '',
+      transportation: (e && e.tfMth) || ''
+    };
+
+    res.json({ item: result });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '상세 정보를 불러오는데 실패했습니다.' });
   }
 });
+
+function formatYmdServer(str) {
+  if (!str || str.length !== 8) return '';
+  return `${str.slice(0,4)}.${str.slice(4,6)}.${str.slice(6,8)}`;
+}
 
 app.listen(PORT, () => {
   console.log(`케어보이스 서버 실행: http://localhost:${PORT}`);

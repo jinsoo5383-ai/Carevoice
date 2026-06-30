@@ -494,6 +494,109 @@
     .facility-type-tag.day { background: #F3E5F5; color: #7B1FA2; }
     .facility-type-tag.etc { background: var(--bg); color: var(--primary); }
 
+    /* 시설 상세 모달 */
+    .detail-header {
+      margin-bottom: 20px;
+    }
+    .detail-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .detail-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .detail-contact-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .detail-section {
+      margin-top: 22px;
+    }
+    .detail-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    .detail-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    .detail-info-cell {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .detail-info-cell-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .detail-info-cell-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .detail-occupancy-box {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+    }
+    .detail-occupancy-item .num {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .detail-occupancy-item .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .detail-program-item {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .detail-program-name { font-weight: 600; margin-bottom: 2px; }
+    .detail-program-meta { color: var(--text-muted); font-size: 12px; }
+    .detail-empty-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .detail-cta {
+      display: flex;
+      gap: 8px;
+      margin-top: 24px;
+    }
+    .detail-cta button {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .detail-cta .primary { background: var(--primary); color: white; }
+    .detail-cta .secondary { background: var(--bg); color: var(--primary); }
+
     .empty-icon { font-size: 48px; margin-bottom: 16px; }
     .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .empty-desc { font-size: 14px; line-height: 1.6; }
@@ -883,6 +986,15 @@
   </div>
 </div>
 
+<!-- 시설 상세 모달 -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="max-width:680px; padding:0; overflow:hidden;">
+    <div id="detail-modal-body" style="max-height:85vh; overflow-y:auto; padding:24px;">
+      <div class="facility-notice">불러오는 중입니다...</div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -934,6 +1046,120 @@
   function closeModal() {
     document.getElementById('modal').classList.remove('active');
     document.body.style.overflow = '';
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detail-modal').classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  async function openFacilityDetail(longTermAdminSym) {
+    const item = facilityDataMap[longTermAdminSym];
+    if (!item) return;
+
+    const modal = document.getElementById('detail-modal');
+    const body = document.getElementById('detail-modal-body');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    body.innerHTML = '<div class="facility-notice">불러오는 중입니다...</div>';
+
+    try {
+      const params = new URLSearchParams({ adminPttnCd: item.adminPttnCd });
+      const res = await fetch(`/api/facilities/detail/${longTermAdminSym}?${params}`);
+      const data = await res.json();
+
+      if (!data.item) {
+        body.innerHTML = '<div class="facility-notice">상세 정보를 불러오지 못했어요.</div>';
+        return;
+      }
+
+      body.innerHTML = renderFacilityDetailHtml(data.item, item);
+    } catch (err) {
+      body.innerHTML = '<div class="facility-notice">상세 정보를 불러오는 중 오류가 발생했어요.</div>';
+    }
+  }
+
+  function renderFacilityDetailHtml(d, cardItem) {
+    const type = adminTypeInfo(d.adminPttnCd);
+
+    const infoGrid = (obj) => {
+      if (!obj) return '<div class="detail-empty-note">아직 등록된 정보가 없어요.</div>';
+      const entries = Object.entries(obj).filter(([, v]) => v && v !== 0);
+      if (entries.length === 0) return '<div class="detail-empty-note">등록된 인원/공간이 없어요.</div>';
+      return `<div class="detail-info-grid">${entries.map(([k, v]) => `
+        <div class="detail-info-cell">
+          <div class="detail-info-cell-label">${k}</div>
+          <div class="detail-info-cell-value">${v}${typeof v === 'number' ? '' : ''}</div>
+        </div>
+      `).join('')}</div>`;
+    };
+
+    const occupancyHtml = d.occupancy ? `
+      <div class="detail-occupancy-box">
+        <div class="detail-occupancy-item"><div class="num">${d.occupancy.정원}</div><div class="label">정원</div></div>
+        <div class="detail-occupancy-item"><div class="num">${d.occupancy.현원남 + d.occupancy.현원여}</div><div class="label">현원</div></div>
+        <div class="detail-occupancy-item"><div class="num">${d.occupancy.대기남 + d.occupancy.대기여}</div><div class="label">대기</div></div>
+      </div>
+    ` : '<div class="detail-empty-note">입소 현황 정보가 없어요.</div>';
+
+    const programsHtml = (d.programs && d.programs.length > 0)
+      ? d.programs.map(p => `
+        <div class="detail-program-item">
+          <div class="detail-program-name">${p.name}</div>
+          <div class="detail-program-meta">${[p.target && `대상 ${p.target}명`, p.cycle, p.place].filter(Boolean).join(' · ')}</div>
+        </div>
+      `).join('')
+      : '<div class="detail-empty-note">아직 등록된 프로그램 정보가 없어요.</div>';
+
+    const contactLines = [];
+    if (d.phone) contactLines.push(`📞 ${d.phone}`);
+    if (d.siDoNm) contactLines.push(`📍 ${d.siDoNm}`);
+    if (d.registeredDate) contactLines.push(`기관지정일 ${d.registeredDate}`);
+    if (d.homepage) contactLines.push(`🔗 ${d.homepage}`);
+    if (d.parking) contactLines.push(`🅿️ ${d.parking}`);
+
+    const transportHtml = d.transportation
+      ? `<div class="detail-section"><div class="detail-section-title">교통편</div><div class="detail-empty-note" style="line-height:1.6;">${d.transportation}</div></div>`
+      : '';
+
+    return `
+      <div class="detail-header">
+        <div class="detail-title">${d.adminNm || cardItem.adminNm}</div>
+        <div class="detail-tags">
+          <span class="facility-type-tag ${type.cls}">${type.label}</span>
+        </div>
+        <div class="detail-contact-row">
+          ${contactLines.map(l => `<div>${l}</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">입소 현황</div>
+        ${occupancyHtml}
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">인력 현황</div>
+        ${infoGrid(d.staff)}
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">시설 현황</div>
+        ${infoGrid(d.facility)}
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">프로그램 운영</div>
+        ${programsHtml}
+      </div>
+
+      ${transportHtml}
+
+      <div class="detail-cta">
+        <button class="secondary" onclick="closeDetailModal()">닫기</button>
+        <button class="primary" onclick="closeDetailModal(); goWriteReviewFor('${(d.adminNm || cardItem.adminNm).replace(/'/g, "\\'")}')">이 시설 후기 보기/쓰기</button>
+      </div>
+    `;
   }
 
   function showToast(msg, type = '') {
@@ -1026,14 +1252,16 @@
   let facilityKeyword = '';
   let facilityRegion = '';
   let currentSelectedFacility = '';
+  let facilityDataMap = {}; // longTermAdminSym -> item
 
   function renderFacilityCards(items, append) {
     const container = document.getElementById('facilities-container');
     const cardsHtml = items.map(item => {
       const type = adminTypeInfo(item.adminPttnCd);
       const regionTag = item.siDoNm ? `<span class="facility-card-date">${item.siDoNm}</span>` : '';
+      facilityDataMap[item.longTermAdminSym] = item;
       return `
-        <div class="facility-card">
+        <div class="facility-card" onclick="openFacilityDetail('${item.longTermAdminSym}')" style="cursor:pointer;">
           <div class="facility-card-info">
             <div class="facility-card-name">${item.adminNm}</div>
             <div class="facility-card-meta">
@@ -1042,7 +1270,7 @@
               <span class="facility-card-date">지정일 ${formatYmd(item.longTermPeribRgtDt)}</span>
             </div>
           </div>
-          <button class="facility-card-btn" onclick="goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
+          <button class="facility-card-btn" onclick="event.stopPropagation(); goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
         </div>
       `;
     }).join('');
