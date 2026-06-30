@@ -35,6 +35,20 @@ app.get('/api/reviews', (req, res) => {
   res.json({ reviews: paginated, total, page: Number(page) });
 });
 
+// 여러 시설명에 대한 후기 개수를 한 번에 조회 (검색 결과 카드에 후기 개수 표시용)
+app.post('/api/reviews/counts', (req, res) => {
+  const { facilityNames } = req.body;
+  if (!Array.isArray(facilityNames)) {
+    return res.status(400).json({ error: 'facilityNames 배열이 필요합니다.' });
+  }
+  const reviews = db.get('reviews').value();
+  const counts = {};
+  facilityNames.forEach(name => {
+    counts[name] = reviews.filter(r => r.facility_name === name).length;
+  });
+  res.json({ counts });
+});
+
 // 후기 작성
 app.post('/api/reviews', (req, res) => {
   const {
@@ -155,8 +169,9 @@ app.get('/api/facilities/search', async (req, res) => {
       const xmlText = await response.text();
       const { items, totalCount } = parseXmlItems(xmlText);
       const itemsWithRegionName = items.map(it => ({ ...it, siDoNm: SIDO_NAMES[it.siDoCd] || '' }));
+      const groupedItems = groupByFacility(itemsWithRegionName);
       return res.json({
-        items: itemsWithRegionName,
+        items: groupedItems,
         totalCount,
         page: Number(page),
         hasMore: Number(page) * 20 < totalCount
@@ -194,9 +209,11 @@ app.get('/api/facilities/search', async (req, res) => {
       return (b.longTermPeribRgtDt || '').localeCompare(a.longTermPeribRgtDt || '');
     });
 
+    const groupedItems = groupByFacility(allItems);
+
     res.json({
-      items: allItems,
-      totalCount: allItems.length,
+      items: groupedItems,
+      totalCount: groupedItems.length,
       page: 1,
       hasMore: false,
       notice: `전국 17개 시도에서 "${keyword}"(으)로 검색한 결과예요. (시도별 최대 10건, 지역명 가나다순 정렬)`
@@ -206,6 +223,41 @@ app.get('/api/facilities/search', async (req, res) => {
     res.status(500).json({ error: '요양기관 데이터를 불러오는데 실패했습니다.' });
   }
 });
+
+// 기관코드(longTermAdminSym) 기준으로 중복 row를 하나로 묶고, 운영 서비스 종류를 배열로 첨부
+function groupByFacility(items) {
+  const map = new Map();
+  items.forEach(item => {
+    const key = item.longTermAdminSym;
+    const type = adminTypeInfoServer(item.adminPttnCd);
+    if (!map.has(key)) {
+      map.set(key, { ...item, services: [{ code: item.adminPttnCd, label: type.label }] });
+    } else {
+      const existing = map.get(key);
+      if (!existing.services.some(s => s.code === item.adminPttnCd)) {
+        existing.services.push({ code: item.adminPttnCd, label: type.label });
+      }
+      // 가장 최근 지정일을 대표값으로 사용
+      if ((item.longTermPeribRgtDt || '') > (existing.longTermPeribRgtDt || '')) {
+        existing.longTermPeribRgtDt = item.longTermPeribRgtDt;
+      }
+    }
+  });
+  return Array.from(map.values());
+}
+
+function adminTypeInfoServer(code) {
+  const map = {
+    'A04': { label: '요양원' },
+    'A03': { label: '요양병원' },
+    'C01': { label: '방문요양' },
+    'C02': { label: '방문목욕' },
+    'C04': { label: '방문간호' },
+    'C05': { label: '주야간보호' },
+    'C06': { label: '단기보호' }
+  };
+  return map[code] || { label: '재가/복지기관' };
+}
 
 // 단일 item(배열 아님) 응답 파서: <item>...</item> 하나만 있는 응답용
 function parseXmlSingleItem(xml) {

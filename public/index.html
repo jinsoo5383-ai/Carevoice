@@ -471,6 +471,17 @@
       flex-shrink: 0;
     }
 
+    .facility-card-review-badge {
+      background: #FFF3E0;
+      color: #E76F00;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
     .facility-notice {
       text-align: center;
       padding: 24px;
@@ -850,13 +861,6 @@
     <button class="search-btn" onclick="searchFacilities()">검색</button>
   </div>
   <div class="filter-row">
-    <select class="filter-select" id="filter-type" onchange="search()">
-      <option value="">전체 시설(후기)</option>
-      <option value="요양원">요양원</option>
-      <option value="요양병원">요양병원</option>
-      <option value="주야간보호">주야간보호</option>
-      <option value="방문요양">방문요양</option>
-    </select>
     <select class="filter-select" id="filter-region" onchange="searchFacilities()">
       <option value="">전국</option>
       <option value="11">서울</option>
@@ -887,13 +891,6 @@
   </div>
   <div id="facilities-container"></div>
   <div id="facility-load-more-wrap" style="text-align:center; margin: 12px 0;"></div>
-
-  <div class="section-header" style="margin-top:32px;">
-    <span class="section-title">최근 후기</span>
-    <span class="review-count" id="result-count"></span>
-  </div>
-  <div id="reviews-section-anchor"></div>
-  <div id="reviews-container"></div>
 </div>
 
 </div><!-- /main-view -->
@@ -1030,7 +1027,7 @@
 <script>
   const ratings = { overall: 0, food: 0, clean: 0, staff: 0, visit: 0 };
   let currentPage = 1;
-  let currentQuery = {};
+  let currentDetailFacilityName = '';
 
   // 별점 초기화
   document.querySelectorAll('.stars').forEach(starGroup => {
@@ -1071,6 +1068,11 @@
   function openModal() {
     document.getElementById('modal').classList.add('active');
     document.body.style.overflow = 'hidden';
+  }
+
+  function openModalForFacility(name) {
+    document.getElementById('f-name').value = name;
+    openModal();
   }
 
   function closeModal() {
@@ -1119,6 +1121,8 @@
       }
 
       body.innerHTML = renderFacilityDetailHtml(data.item, { adminNm: fallbackName, adminPttnCd });
+      currentDetailFacilityName = data.item.adminNm || fallbackName;
+      loadDetailReviews(currentDetailFacilityName);
     } catch (err) {
       body.innerHTML = '<div class="facility-notice">상세 정보를 불러오는 중 오류가 발생했어요.</div>';
     }
@@ -1198,7 +1202,10 @@
     if (d.phone) contactLines.push(`📞 ${d.phone}`);
     if (d.siDoNm) contactLines.push(`📍 ${d.siDoNm}`);
     if (d.registeredDate) contactLines.push(`기관지정일 ${d.registeredDate}`);
-    if (d.homepage) contactLines.push(`🔗 ${d.homepage}`);
+    if (d.homepage) {
+      const url = /^https?:\/\//.test(d.homepage) ? d.homepage : `https://${d.homepage}`;
+      contactLines.push(`🔗 <a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--primary); text-decoration:underline;">${d.homepage}</a>`);
+    }
     if (d.parking) contactLines.push(`🅿️ ${d.parking}`);
 
     const transportHtml = d.transportation
@@ -1259,15 +1266,20 @@
 
         <div class="detail-cta">
           <button class="secondary" onclick="goBackToMain()">목록으로</button>
-          <button class="primary" onclick="goWriteReviewFromDetail('${displayName.replace(/'/g, "\\'")}')">이 시설 후기 보기/쓰기</button>
+          <button class="primary" onclick="openModalForFacility('${displayName.replace(/'/g, "\\'")}')">이 시설 후기 쓰기</button>
+        </div>
+
+        <div class="detail-section" style="margin-top:36px;">
+          <div class="section-header">
+            <span class="section-title">이 시설 후기</span>
+            <span class="review-count" id="detail-review-count"></span>
+          </div>
+          <div id="detail-reviews-container">
+            <div class="facility-notice">후기를 불러오는 중입니다...</div>
+          </div>
         </div>
       </div>
     `;
-  }
-
-  function goWriteReviewFromDetail(name) {
-    goBackToMain();
-    setTimeout(() => goWriteReviewFor(name), 50);
   }
 
   function showToast(msg, type = '') {
@@ -1320,7 +1332,7 @@
         Object.keys(ratings).forEach(k => ratings[k] = 0);
         document.querySelectorAll('.star').forEach(s => s.classList.remove('on'));
         document.getElementById('char-count').textContent = '0';
-        loadReviews();
+        if (currentDetailFacilityName) loadDetailReviews(currentDetailFacilityName);
       } else {
         showToast(result.error || '오류가 발생했습니다.', 'error');
       }
@@ -1330,16 +1342,6 @@
       btn.disabled = false;
       btn.textContent = '익명으로 후기 등록하기';
     }
-  }
-
-  function search() {
-    currentPage = 1;
-    currentQuery = {
-      facility_name: document.getElementById('search-input').value,
-      facility_type: document.getElementById('filter-type').value,
-      region: ''
-    };
-    loadReviews();
   }
 
   // 기관유형코드 → 표시용 분류
@@ -1359,26 +1361,32 @@
   let facilityPage = 1;
   let facilityKeyword = '';
   let facilityRegion = '';
-  let currentSelectedFacility = '';
   let facilityDataMap = {}; // longTermAdminSym -> item
 
   function renderFacilityCards(items, append) {
     const container = document.getElementById('facilities-container');
     const cardsHtml = items.map(item => {
-      const type = adminTypeInfo(item.adminPttnCd);
       const regionTag = item.siDoNm ? `<span class="facility-card-date">${item.siDoNm}</span>` : '';
       facilityDataMap[item.longTermAdminSym] = item;
+
+      const serviceTags = (item.services && item.services.length > 0)
+        ? item.services.map(s => {
+            const cls = adminTypeInfo(s.code).cls;
+            return `<span class="facility-type-tag ${cls}">${s.label}</span>`;
+          }).join('')
+        : `<span class="facility-type-tag ${adminTypeInfo(item.adminPttnCd).cls}">${adminTypeInfo(item.adminPttnCd).label}</span>`;
+
       return `
-        <div class="facility-card" onclick="openFacilityDetail('${item.longTermAdminSym}')" style="cursor:pointer;">
+        <div class="facility-card" onclick="openFacilityDetail('${item.longTermAdminSym}')" style="cursor:pointer;" id="fcard-${item.longTermAdminSym}">
           <div class="facility-card-info">
             <div class="facility-card-name">${item.adminNm}</div>
             <div class="facility-card-meta">
-              <span class="facility-type-tag ${type.cls}">${type.label}</span>
+              ${serviceTags}
               ${regionTag}
               <span class="facility-card-date">지정일 ${formatYmd(item.longTermPeribRgtDt)}</span>
             </div>
           </div>
-          <button class="facility-card-btn" onclick="event.stopPropagation(); goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
+          <span class="facility-card-review-badge" id="review-badge-${item.longTermAdminSym}" style="display:none;"></span>
         </div>
       `;
     }).join('');
@@ -1387,6 +1395,33 @@
       container.insertAdjacentHTML('beforeend', cardsHtml);
     } else {
       container.innerHTML = cardsHtml;
+    }
+
+    loadReviewCountsForCards(items);
+  }
+
+  async function loadReviewCountsForCards(items) {
+    const facilityNames = [...new Set(items.map(i => i.adminNm))];
+    if (facilityNames.length === 0) return;
+
+    try {
+      const res = await fetch('/api/reviews/counts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facilityNames })
+      });
+      const { counts } = await res.json();
+
+      items.forEach(item => {
+        const count = counts[item.adminNm] || 0;
+        const badge = document.getElementById(`review-badge-${item.longTermAdminSym}`);
+        if (badge && count > 0) {
+          badge.textContent = `후기 ${count}개`;
+          badge.style.display = '';
+        }
+      });
+    } catch (err) {
+      // 후기 개수 조회 실패는 조용히 무시 (카드 자체는 정상 표시)
     }
   }
 
@@ -1489,91 +1524,81 @@
     return `${str.slice(0,4)}.${str.slice(4,6)}.${str.slice(6,8)}`;
   }
 
-  function goWriteReviewFor(name) {
-    document.getElementById('search-input').value = name;
-    currentQuery = { facility_name: name };
-    currentSelectedFacility = name;
-    loadReviews();
-    document.getElementById('f-name').value = name;
-    const anchor = document.getElementById('reviews-section-anchor');
-    window.scrollTo({ top: anchor.offsetTop - 70, behavior: 'smooth' });
-  }
-
   document.getElementById('search-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') searchFacilities();
   });
 
-  async function loadReviews() {
-    const params = new URLSearchParams({ ...currentQuery, page: currentPage });
-    const res = await fetch(`/api/reviews?${params}`);
-    const { reviews, total } = await res.json();
+  async function loadDetailReviews(facilityName) {
+    const container = document.getElementById('detail-reviews-container');
+    const countEl = document.getElementById('detail-review-count');
+    if (!container) return;
 
-    document.getElementById('total-count').textContent = total.toLocaleString();
-    document.getElementById('result-count').textContent = `총 ${total}개`;
+    try {
+      const params = new URLSearchParams({ facility_name: facilityName, page: 1 });
+      const res = await fetch(`/api/reviews?${params}`);
+      const { reviews, total } = await res.json();
 
-    const container = document.getElementById('reviews-container');
+      countEl.textContent = total > 0 ? `총 ${total}개` : '';
 
-    if (reviews.length === 0) {
-      const nameLine = currentSelectedFacility
-        ? `<div class="empty-title">"${currentSelectedFacility}"에 아직 후기가 없어요</div>`
-        : `<div class="empty-title">아직 후기가 없어요</div>`;
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">💬</div>
-          ${nameLine}
-          <div class="empty-desc">이 시설을 이용해보셨나요?<br>첫 번째 솔직한 후기를 남겨주세요!</div>
-          <button class="btn-write" style="margin-top:14px;" onclick="openModal()">후기 쓰기</button>
-        </div>`;
-      return;
-    }
+      if (reviews.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">💬</div>
+            <div class="empty-title">"${facilityName}"에 아직 후기가 없어요</div>
+            <div class="empty-desc">이 시설을 이용해보셨나요?<br>첫 번째 솔직한 후기를 남겨주세요!</div>
+            <button class="btn-write" style="margin-top:14px;" onclick="openModalForFacility('${facilityName.replace(/'/g, "\\'")}')">후기 쓰기</button>
+          </div>`;
+        return;
+      }
 
-    container.innerHTML = reviews.map(r => `
-      <div class="review-card">
-        <div class="card-top">
-          <div class="facility-info">
-            <div class="facility-name">${r.facility_name}</div>
-            <div class="facility-meta">
-              <span class="facility-type-badge">${r.facility_type}</span>
-              <span class="region-text">${r.region}</span>
-            </div>
-          </div>
-          <div class="overall-score">
-            <span class="score-num">${r.rating_overall}.0</span>
-            <span class="score-label">종합</span>
-          </div>
-        </div>
-
-        <div class="rating-bars">
-          ${[
-            ['식사', r.rating_food],
-            ['청결', r.rating_clean],
-            ['직원', r.rating_staff],
-            ['면회', r.rating_visit]
-          ].map(([label, val]) => `
-            <div class="rating-bar-item">
-              <span class="bar-label">${label}</span>
-              <div class="bar-track">
-                <div class="bar-fill" style="width:${val*20}%"></div>
+      container.innerHTML = reviews.map(r => `
+        <div class="review-card">
+          <div class="card-top">
+            <div class="facility-info">
+              <div class="facility-meta">
+                <span class="facility-type-badge">${r.facility_type || ''}</span>
               </div>
-              <span class="bar-val">${val}</span>
             </div>
-          `).join('')}
-        </div>
+            <div class="overall-score">
+              <span class="score-num">${r.rating_overall}.0</span>
+              <span class="score-label">종합</span>
+            </div>
+          </div>
 
-        <div class="review-content collapsed" id="content-${r.id}">${r.content}</div>
-        <button class="expand-btn" onclick="toggleExpand(${r.id}, this)">더 보기 ▾</button>
+          <div class="rating-bars">
+            ${[
+              ['식사', r.rating_food],
+              ['청결', r.rating_clean],
+              ['직원', r.rating_staff],
+              ['면회', r.rating_visit]
+            ].map(([label, val]) => `
+              <div class="rating-bar-item">
+                <span class="bar-label">${label}</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:${val*20}%"></div>
+                </div>
+                <span class="bar-val">${val}</span>
+              </div>
+            `).join('')}
+          </div>
 
-        <div class="card-bottom">
-          <span class="card-meta">${formatDate(r.created_at)} · 인증된 후기</span>
-          <div class="card-actions">
-            <button class="action-btn ${r.helped ? 'helpful' : ''}" onclick="markHelpful(${r.id}, this)">
-              👍 도움이 됐어요 ${r.helpful_count > 0 ? r.helpful_count : ''}
-            </button>
-            <button class="action-btn" onclick="reportReview(${r.id})">신고</button>
+          <div class="review-content collapsed" id="content-${r.id}">${r.content}</div>
+          <button class="expand-btn" onclick="toggleExpand(${r.id}, this)">더 보기 ▾</button>
+
+          <div class="card-bottom">
+            <span class="card-meta">${formatDate(r.created_at)} · 인증된 후기</span>
+            <div class="card-actions">
+              <button class="action-btn ${r.helped ? 'helpful' : ''}" onclick="markHelpful(${r.id}, this)">
+                👍 도움이 됐어요 ${r.helpful_count > 0 ? r.helpful_count : ''}
+              </button>
+              <button class="action-btn" onclick="reportReview(${r.id})">신고</button>
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+    } catch (err) {
+      container.innerHTML = '<div class="facility-notice">후기를 불러오는 중 오류가 발생했어요.</div>';
+    }
   }
 
   function toggleExpand(id, btn) {
@@ -1619,7 +1644,6 @@
       document.getElementById('filter-region').value = '11';
       searchFacilities();
     }
-    loadReviews();
   })();
 </script>
 </body>
