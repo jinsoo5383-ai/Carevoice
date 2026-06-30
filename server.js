@@ -415,7 +415,8 @@ app.get('/api/facilities/blogs', async (req, res) => {
   if (!name) return res.json({ items: [] });
 
   try {
-    const params = new URLSearchParams({ query: name, display: 5, sort: 'sim' });
+    // 후보를 넉넉히 받은 뒤, 시설명 전체가 정확히 포함된 글만 골라낸다.
+    const params = new URLSearchParams({ query: name, display: 20, sort: 'sim' });
     const url = `https://openapi.naver.com/v1/search/blog.json?${params}`;
     const response = await fetch(url, {
       headers: {
@@ -426,13 +427,24 @@ app.get('/api/facilities/blogs', async (req, res) => {
     if (!response.ok) return res.json({ items: [] });
     const data = await response.json();
 
-    const items = (data.items || []).map(item => ({
-      title: stripHtmlTags(item.title),
-      summary: stripHtmlTags(item.description),
-      link: item.link,
-      bloggerName: item.bloggername || '',
-      postDate: item.postdate || ''
-    }));
+    const normalize = (s) => stripHtmlTags(s || '').replace(/\s+/g, '');
+    const targetName = normalize(name);
+
+    const items = (data.items || [])
+      .filter(item => {
+        const title = normalize(item.title);
+        const desc = normalize(item.description);
+        // 시설명 전체 문자열이 제목 또는 본문에 그대로 포함된 경우만 통과
+        return title.includes(targetName) || desc.includes(targetName);
+      })
+      .slice(0, 5)
+      .map(item => ({
+        title: stripHtmlTags(item.title),
+        summary: stripHtmlTags(item.description),
+        link: item.link,
+        bloggerName: item.bloggername || '',
+        postDate: item.postdate || ''
+      }));
 
     res.json({ items });
   } catch (err) {
