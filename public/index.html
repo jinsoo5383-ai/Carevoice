@@ -1080,7 +1080,7 @@
 
       if (!data.items || data.items.length === 0) {
         if (!isLoadMore) {
-          container.innerHTML = `<div class="facility-notice">검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.</div>`;
+          container.innerHTML = `<div class="facility-notice">${data.notice || '검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.'}</div>`;
           countEl.textContent = '';
         }
         loadMoreWrap.innerHTML = '';

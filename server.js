@@ -116,9 +116,25 @@ const SIDO_NAMES = {
   '47':'경북','48':'경남','50':'제주','51':'강원','52':'전북'
 };
 
+async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
+  const params = new URLSearchParams({
+    ServiceKey: serviceKey,
+    pageNo: 1,
+    numOfRows,
+    siDoCd
+  });
+  if (keyword) params.append('adminNm', keyword);
+
+  const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+  const response = await fetch(url);
+  const xmlText = await response.text();
+  const { items } = parseXmlItems(xmlText);
+  return items.map(it => ({ ...it, siDoNm: SIDO_NAMES[siDoCd] || '' }));
+}
+
 // 요양기관 검색 API (건보공단 공공데이터)
-// - region 지정: 해당 지역만, 서버 페이지네이션(10건씩) 그대로 사용
-// - region 미지정(전국): 17개 시도를 시도당 N건씩 순회 수집 (키워드 유무 상관없이 동작)
+// - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
+// - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
 app.get('/api/facilities/search', async (req, res) => {
   const { keyword, region, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
@@ -147,35 +163,43 @@ app.get('/api/facilities/search', async (req, res) => {
       });
     }
 
-    // 전국: 17개 시도를 순회. 시도당 가져오는 양은 적게(5건) 잡아서 응답 속도를 확보.
-    // keyword가 있으면 시도별 필터링되어 더 적은 결과, 없으면 각 지역 최신 5건씩 골고루 섞임.
-    let allItems = [];
-    for (const siDoCd of SIDO_CODES) {
-      const params = new URLSearchParams({
-        ServiceKey: serviceKey,
-        pageNo: 1,
-        numOfRows: 5,
-        siDoCd
+    // 전국: keyword 필수 (지역 정보 없이는 결과 기준이 모호하고 API 자체도 의미 있는 결과를 안 줌)
+    if (!keyword) {
+      return res.json({
+        items: [],
+        totalCount: 0,
+        page: 1,
+        hasMore: false,
+        notice: '전국에서 찾으시려면 시설명을 입력해주세요. 지역을 먼저 선택하시면 해당 지역 전체 목록을 바로 볼 수 있어요.'
       });
-      if (keyword) params.append('adminNm', keyword);
-
-      const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
-      try {
-        const response = await fetch(url);
-        const xmlText = await response.text();
-        const { items } = parseXmlItems(xmlText);
-        allItems = allItems.concat(items.map(it => ({ ...it, siDoNm: SIDO_NAMES[siDoCd] || '' })));
-      } catch (innerErr) {
-        console.error(`siDoCd ${siDoCd} 검색 실패:`, innerErr.message);
-      }
     }
+
+    // 17개 시도를 병렬로 동시 조회 (순차 호출보다 훨씬 빠름)
+    const results = await Promise.allSettled(
+      SIDO_CODES.map(siDoCd => fetchSido(serviceKey, siDoCd, keyword, 10))
+    );
+
+    let allItems = [];
+    results.forEach((r, idx) => {
+      if (r.status === 'fulfilled') {
+        allItems = allItems.concat(r.value);
+      } else {
+        console.error(`siDoCd ${SIDO_CODES[idx]} 검색 실패:`, r.reason && r.reason.message);
+      }
+    });
+
+    // 정렬 기준 명시: 시도 가나다순 → 등록일 최신순
+    allItems.sort((a, b) => {
+      if (a.siDoNm !== b.siDoNm) return (a.siDoNm || '').localeCompare(b.siDoNm || '');
+      return (b.longTermPeribRgtDt || '').localeCompare(a.longTermPeribRgtDt || '');
+    });
 
     res.json({
       items: allItems,
       totalCount: allItems.length,
       page: 1,
       hasMore: false,
-      notice: keyword ? null : '전국 결과는 지역별로 일부만 모아 보여드려요. 더 많은 결과를 보려면 지역을 선택해주세요.'
+      notice: `전국 17개 시도에서 "${keyword}"(으)로 검색한 결과예요. (시도별 최대 10건, 지역명 가나다순 정렬)`
     });
   } catch (err) {
     console.error(err);
