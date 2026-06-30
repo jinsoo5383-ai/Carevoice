@@ -344,8 +344,15 @@ app.get('/api/facilities/location', async (req, res) => {
       found: true,
       address: (geo && geo.roadAddress) || localResult.address,
       phone: localResult.phone || '',
+      lat: geo ? geo.lat : null,
+      lng: geo ? geo.lng : null,
       mapImageUrl: geo ? staticMapUrl(geo.lat, geo.lng) : null,
-      directionsUrl: geo ? `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}` : null
+      directionsUrl: geo
+        ? `https://map.naver.com/p/directions/-/${geo.lng},${geo.lat},${encodeURIComponent(localResult.name)}/-/walk`
+        : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`,
+      naverMapViewUrl: geo
+        ? `https://map.naver.com/p/entry/place/search?c=${geo.lng},${geo.lat},17,0,0,0,dh&query=${encodeURIComponent(localResult.name)}`
+        : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`
     };
 
     res.json(result);

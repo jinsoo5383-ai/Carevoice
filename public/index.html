@@ -823,6 +823,7 @@
       .hero-stats { gap: 20px; }
     }
   </style>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=sbg4s24ek6"></script>
 </head>
 <body>
 
@@ -1148,14 +1149,30 @@
 
       addrEl.innerHTML = `📍 ${data.address}`;
 
+      const linkButtons = `
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+          ${data.directionsUrl ? `<a href="${data.directionsUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="text-decoration:none;">🧭 길찾기</a>` : ''}
+          ${data.naverMapViewUrl ? `<a href="${data.naverMapViewUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="text-decoration:none;">🗺️ 네이버지도에서 보기</a>` : ''}
+        </div>
+      `;
+
       if (mapWrap) {
-        if (data.mapImageUrl) {
-          mapWrap.innerHTML = `
-            <img src="${data.mapImageUrl}" alt="위치 지도" style="width:100%; border-radius:10px; display:block;" />
-            ${data.directionsUrl ? `<a href="${data.directionsUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="display:inline-block; margin-top:8px; text-decoration:none;">🧭 네이버지도에서 길찾기</a>` : ''}
-          `;
-        } else if (data.directionsUrl) {
-          mapWrap.innerHTML = `<a href="${data.directionsUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="display:inline-block; text-decoration:none;">🧭 네이버지도에서 길찾기</a>`;
+        if (data.lat && data.lng && window.naver && window.naver.maps) {
+          mapWrap.innerHTML = `<div id="naver-dynamic-map" style="width:100%; height:280px; border-radius:10px; overflow:hidden;"></div>${linkButtons}`;
+          try {
+            const position = new naver.maps.LatLng(data.lat, data.lng);
+            const map = new naver.maps.Map('naver-dynamic-map', {
+              center: position,
+              zoom: 16
+            });
+            new naver.maps.Marker({ position, map });
+          } catch (mapErr) {
+            mapWrap.innerHTML = `<div class="detail-empty-note">지도를 불러오지 못했어요.</div>${linkButtons}`;
+          }
+        } else if (data.mapImageUrl) {
+          mapWrap.innerHTML = `<img src="${data.mapImageUrl}" alt="위치 지도" style="width:100%; border-radius:10px; display:block;" />${linkButtons}`;
+        } else {
+          mapWrap.innerHTML = linkButtons;
         }
       }
     } catch (err) {
