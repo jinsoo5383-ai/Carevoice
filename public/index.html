@@ -1259,12 +1259,12 @@
   function openFacilityDetail(longTermAdminSym) {
     const item = facilityDataMap[longTermAdminSym];
     if (!item) return;
-    const url = `${window.location.pathname}?detail=${longTermAdminSym}&type=${item.adminPttnCd}&name=${encodeURIComponent(item.adminNm)}`;
+    const url = `${window.location.pathname}?detail=${longTermAdminSym}&type=${item.adminPttnCd}&name=${encodeURIComponent(item.adminNm)}&region=${item.siDoCd || ''}`;
     history.pushState({}, '', url);
-    loadFacilityDetailPage(longTermAdminSym, item.adminPttnCd, item.adminNm);
+    loadFacilityDetailPage(longTermAdminSym, item.adminPttnCd, item.adminNm, item.siDoCd);
   }
 
-  async function loadFacilityDetailPage(longTermAdminSym, adminPttnCd, fallbackName) {
+  async function loadFacilityDetailPage(longTermAdminSym, adminPttnCd, fallbackName, knownSiDoCd) {
     showDetailView();
     const body = document.getElementById('detail-page-body');
     body.innerHTML = '<div class="facility-notice">불러오는 중입니다...</div>';
@@ -1279,11 +1279,14 @@
         return;
       }
 
+      // siDoCd는 검색 결과에서 이미 알고 있던 값을 우선 사용 (상세 API 응답값이 비어있거나 부정확할 수 있음)
+      const siDoCd = knownSiDoCd || data.item.siDoCd;
+
       body.innerHTML = renderFacilityDetailHtml(data.item, { adminNm: fallbackName, adminPttnCd });
       currentDetailFacilityName = data.item.adminNm || fallbackName;
       loadDetailReviews(currentDetailFacilityName);
       loadFacilityLocation(currentDetailFacilityName, data.item.siDoNm);
-      loadRecommendedFacilities(data.item.siDoCd, adminPttnCd, longTermAdminSym);
+      loadRecommendedFacilities(siDoCd, adminPttnCd, longTermAdminSym);
       loadFacilityBlogs(currentDetailFacilityName);
     } catch (err) {
       body.innerHTML = '<div class="facility-notice">상세 정보를 불러오는 중 오류가 발생했어요.</div>';
@@ -1312,7 +1315,7 @@
               const type = adminTypeInfo(item.adminPttnCd);
               const gradeBadge = item.grade ? `<span class="facility-card-grade-badge grade-${item.grade}">${item.grade}등급</span>` : '';
               return `
-                <div class="recommend-card" onclick="navigateToFacility('${item.longTermAdminSym}', '${item.adminPttnCd}', '${item.adminNm.replace(/'/g, "\\'")}')">
+                <div class="recommend-card" onclick="navigateToFacility('${item.longTermAdminSym}', '${item.adminPttnCd}', '${item.adminNm.replace(/'/g, "\\'")}', '${item.siDoCd || ''}')">
                   <div class="recommend-card-name">${item.adminNm}${gradeBadge}</div>
                   <span class="facility-type-tag ${type.cls}">${type.label}</span>
                 </div>
@@ -1326,10 +1329,10 @@
     }
   }
 
-  function navigateToFacility(longTermAdminSym, adminPttnCd, name) {
-    const url = `${window.location.pathname}?detail=${longTermAdminSym}&type=${adminPttnCd}&name=${encodeURIComponent(name)}`;
+  function navigateToFacility(longTermAdminSym, adminPttnCd, name, siDoCd) {
+    const url = `${window.location.pathname}?detail=${longTermAdminSym}&type=${adminPttnCd}&name=${encodeURIComponent(name)}&region=${siDoCd || ''}`;
     history.pushState({}, '', url);
-    loadFacilityDetailPage(longTermAdminSym, adminPttnCd, name);
+    loadFacilityDetailPage(longTermAdminSym, adminPttnCd, name, siDoCd);
   }
 
   async function loadFacilityBlogs(name) {
@@ -1414,7 +1417,7 @@
     const params = new URLSearchParams(window.location.search);
     const detailId = params.get('detail');
     if (detailId) {
-      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''));
+      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''), params.get('region'));
     } else {
       showMainView();
     }
@@ -1818,6 +1821,13 @@
       facilityPage = targetPage;
     }
 
+    if (facilityKeyword && facilityKeyword.length === 1) {
+      container.innerHTML = '<div class="facility-notice">검색어를 2글자 이상 입력해주세요. 한 글자만으로는 정확한 결과를 찾기 어려워요.</div>';
+      countEl.textContent = '';
+      pagerWrap.innerHTML = '';
+      return;
+    }
+
     container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
     pagerWrap.innerHTML = '';
 
@@ -2016,7 +2026,7 @@
     const params = new URLSearchParams(window.location.search);
     const detailId = params.get('detail');
     if (detailId) {
-      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''));
+      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''), params.get('region'));
     } else {
       document.getElementById('filter-region').value = '11';
       searchFacilities();
