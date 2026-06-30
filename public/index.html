@@ -597,6 +597,28 @@
     .detail-cta .primary { background: var(--primary); color: white; }
     .detail-cta .secondary { background: var(--bg); color: var(--primary); }
 
+    /* 상세 전용 페이지 레이아웃 */
+    .detail-page-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+    .detail-page-inner .detail-title {
+      font-size: 26px;
+    }
+    .detail-page-inner .detail-contact-row {
+      font-size: 14px;
+    }
+    .detail-page-inner .detail-section-title {
+      font-size: 16px;
+    }
+    .detail-page-inner .detail-info-grid {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+    @media (max-width: 480px) {
+      .detail-page-inner .detail-title { font-size: 21px; }
+    }
+
     .empty-icon { font-size: 48px; margin-bottom: 16px; }
     .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .empty-desc { font-size: 14px; line-height: 1.6; }
@@ -801,6 +823,7 @@
   <button class="btn-write" onclick="openModal()">후기 쓰기</button>
 </header>
 
+<div id="main-view">
 <div class="hero">
   <div class="hero-badge">✓ 장기요양인정번호 인증 후기만</div>
   <h1>요양시설 <span>솔직한</span> 후기,<br>익명으로 안전하게</h1>
@@ -871,6 +894,22 @@
   </div>
   <div id="reviews-section-anchor"></div>
   <div id="reviews-container"></div>
+</div>
+
+</div><!-- /main-view -->
+
+<!-- 시설 상세 전용 페이지 -->
+<div id="detail-view" style="display:none;">
+  <header>
+    <button class="logo" onclick="goBackToMain()" style="background:none; border:none; cursor:pointer; font-family:inherit;">
+      <div class="logo-icon">←</div>
+      <span class="logo-text">목록으로</span>
+    </button>
+    <button class="btn-write" onclick="openModal()">후기 쓰기</button>
+  </header>
+  <div id="detail-page-body" class="detail-page-wrap">
+    <div class="facility-notice">불러오는 중입니다...</div>
+  </div>
 </div>
 
 <!-- 후기 작성 모달 -->
@@ -986,15 +1025,6 @@
   </div>
 </div>
 
-<!-- 시설 상세 모달 -->
-<div class="modal-overlay" id="detail-modal">
-  <div class="modal" style="max-width:680px; padding:0; overflow:hidden;">
-    <div id="detail-modal-body" style="max-height:85vh; overflow-y:auto; padding:24px;">
-      <div class="facility-notice">불러오는 중입니다...</div>
-    </div>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1048,23 +1078,38 @@
     document.body.style.overflow = '';
   }
 
-  function closeDetailModal() {
-    document.getElementById('detail-modal').classList.remove('active');
-    document.body.style.overflow = '';
+  function showMainView() {
+    document.getElementById('main-view').style.display = '';
+    document.getElementById('detail-view').style.display = 'none';
+    window.scrollTo({ top: 0 });
   }
 
-  async function openFacilityDetail(longTermAdminSym) {
+  function showDetailView() {
+    document.getElementById('main-view').style.display = 'none';
+    document.getElementById('detail-view').style.display = '';
+    window.scrollTo({ top: 0 });
+  }
+
+  function goBackToMain() {
+    history.pushState({}, '', window.location.pathname);
+    showMainView();
+  }
+
+  function openFacilityDetail(longTermAdminSym) {
     const item = facilityDataMap[longTermAdminSym];
     if (!item) return;
+    const url = `${window.location.pathname}?detail=${longTermAdminSym}&type=${item.adminPttnCd}&name=${encodeURIComponent(item.adminNm)}`;
+    history.pushState({}, '', url);
+    loadFacilityDetailPage(longTermAdminSym, item.adminPttnCd, item.adminNm);
+  }
 
-    const modal = document.getElementById('detail-modal');
-    const body = document.getElementById('detail-modal-body');
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+  async function loadFacilityDetailPage(longTermAdminSym, adminPttnCd, fallbackName) {
+    showDetailView();
+    const body = document.getElementById('detail-page-body');
     body.innerHTML = '<div class="facility-notice">불러오는 중입니다...</div>';
 
     try {
-      const params = new URLSearchParams({ adminPttnCd: item.adminPttnCd });
+      const params = new URLSearchParams({ adminPttnCd });
       const res = await fetch(`/api/facilities/detail/${longTermAdminSym}?${params}`);
       const data = await res.json();
 
@@ -1073,11 +1118,22 @@
         return;
       }
 
-      body.innerHTML = renderFacilityDetailHtml(data.item, item);
+      body.innerHTML = renderFacilityDetailHtml(data.item, { adminNm: fallbackName, adminPttnCd });
     } catch (err) {
       body.innerHTML = '<div class="facility-notice">상세 정보를 불러오는 중 오류가 발생했어요.</div>';
     }
   }
+
+  // 브라우저 뒤로가기/앞으로가기 대응
+  window.addEventListener('popstate', () => {
+    const params = new URLSearchParams(window.location.search);
+    const detailId = params.get('detail');
+    if (detailId) {
+      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''));
+    } else {
+      showMainView();
+    }
+  });
 
   function renderFacilityDetailHtml(d, cardItem) {
     const type = adminTypeInfo(d.adminPttnCd);
@@ -1089,7 +1145,7 @@
       return `<div class="detail-info-grid">${entries.map(([k, v]) => `
         <div class="detail-info-cell">
           <div class="detail-info-cell-label">${k}</div>
-          <div class="detail-info-cell-value">${v}${typeof v === 'number' ? '' : ''}</div>
+          <div class="detail-info-cell-value">${v}</div>
         </div>
       `).join('')}</div>`;
     };
@@ -1111,6 +1167,33 @@
       `).join('')
       : '<div class="detail-empty-note">아직 등록된 프로그램 정보가 없어요.</div>';
 
+    const nonBenefitsHtml = (d.nonBenefits && d.nonBenefits.length > 0)
+      ? `<div class="detail-info-grid">${d.nonBenefits.map(nb => `
+          <div class="detail-info-cell">
+            <div class="detail-info-cell-label">${nb.name}</div>
+            <div class="detail-info-cell-value" style="font-size:13px;">${nb.price ? nb.price + '원' : '-'}</div>
+          </div>
+        `).join('')}</div>`
+      : '<div class="detail-empty-note">아직 등록된 비급여 항목이 없어요.</div>';
+
+    const convInsttsHtml = (d.convInstts && d.convInstts.length > 0)
+      ? d.convInstts.map(c => `
+          <div class="detail-program-item">
+            <div class="detail-program-name">${c.name}</div>
+            ${c.period ? `<div class="detail-program-meta">협약기간 ${c.period}</div>` : ''}
+          </div>
+        `).join('')
+      : '<div class="detail-empty-note">등록된 협약기관이 없어요.</div>';
+
+    const welfareToolsHtml = (d.welfareTools && d.welfareTools.length > 0)
+      ? `<div class="detail-info-grid">${d.welfareTools.map(w => `
+          <div class="detail-info-cell">
+            <div class="detail-info-cell-label">${w.name}</div>
+            <div class="detail-info-cell-value" style="font-size:13px;">${w.maker || w.model || ''}</div>
+          </div>
+        `).join('')}</div>`
+      : '';
+
     const contactLines = [];
     if (d.phone) contactLines.push(`📞 ${d.phone}`);
     if (d.siDoNm) contactLines.push(`📍 ${d.siDoNm}`);
@@ -1122,44 +1205,69 @@
       ? `<div class="detail-section"><div class="detail-section-title">교통편</div><div class="detail-empty-note" style="line-height:1.6;">${d.transportation}</div></div>`
       : '';
 
+    const welfareSection = welfareToolsHtml
+      ? `<div class="detail-section"><div class="detail-section-title">복지용구 현황</div>${welfareToolsHtml}</div>`
+      : '';
+
+    const displayName = d.adminNm || cardItem.adminNm;
+
     return `
-      <div class="detail-header">
-        <div class="detail-title">${d.adminNm || cardItem.adminNm}</div>
-        <div class="detail-tags">
-          <span class="facility-type-tag ${type.cls}">${type.label}</span>
+      <div class="detail-page-inner">
+        <div class="detail-header">
+          <div class="detail-title">${displayName}</div>
+          <div class="detail-tags">
+            <span class="facility-type-tag ${type.cls}">${type.label}</span>
+          </div>
+          <div class="detail-contact-row">
+            ${contactLines.map(l => `<div>${l}</div>`).join('')}
+          </div>
         </div>
-        <div class="detail-contact-row">
-          ${contactLines.map(l => `<div>${l}</div>`).join('')}
+
+        <div class="detail-section">
+          <div class="detail-section-title">입소 현황</div>
+          ${occupancyHtml}
         </div>
-      </div>
 
-      <div class="detail-section">
-        <div class="detail-section-title">입소 현황</div>
-        ${occupancyHtml}
-      </div>
+        <div class="detail-section">
+          <div class="detail-section-title">입소 비용 (비급여 항목)</div>
+          ${nonBenefitsHtml}
+        </div>
 
-      <div class="detail-section">
-        <div class="detail-section-title">인력 현황</div>
-        ${infoGrid(d.staff)}
-      </div>
+        <div class="detail-section">
+          <div class="detail-section-title">인력 현황</div>
+          ${infoGrid(d.staff)}
+        </div>
 
-      <div class="detail-section">
-        <div class="detail-section-title">시설 현황</div>
-        ${infoGrid(d.facility)}
-      </div>
+        <div class="detail-section">
+          <div class="detail-section-title">시설 현황</div>
+          ${infoGrid(d.facility)}
+        </div>
 
-      <div class="detail-section">
-        <div class="detail-section-title">프로그램 운영</div>
-        ${programsHtml}
-      </div>
+        <div class="detail-section">
+          <div class="detail-section-title">프로그램 운영</div>
+          ${programsHtml}
+        </div>
 
-      ${transportHtml}
+        <div class="detail-section">
+          <div class="detail-section-title">협약기관</div>
+          ${convInsttsHtml}
+        </div>
 
-      <div class="detail-cta">
-        <button class="secondary" onclick="closeDetailModal()">닫기</button>
-        <button class="primary" onclick="closeDetailModal(); goWriteReviewFor('${(d.adminNm || cardItem.adminNm).replace(/'/g, "\\'")}')">이 시설 후기 보기/쓰기</button>
+        ${welfareSection}
+
+        ${transportHtml}
+
+        <div class="detail-cta">
+          <button class="secondary" onclick="goBackToMain()">목록으로</button>
+          <button class="primary" onclick="goWriteReviewFromDetail('${displayName.replace(/'/g, "\\'")}')">이 시설 후기 보기/쓰기</button>
+        </div>
       </div>
     `;
+  }
+
+  function goWriteReviewFromDetail(name) {
+    goBackToMain();
+    setTimeout(() => goWriteReviewFor(name), 50);
   }
 
   function showToast(msg, type = '') {
@@ -1501,10 +1609,18 @@
     return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // 초기 로딩: 기본으로 서울 지역 시설을 보여줌
-  document.getElementById('filter-region').value = '11';
-  searchFacilities();
-  loadReviews();
+  // 초기 로딩: URL에 상세 페이지 파라미터가 있으면 바로 상세로, 없으면 서울 지역 기본 목록
+  (function initPage() {
+    const params = new URLSearchParams(window.location.search);
+    const detailId = params.get('detail');
+    if (detailId) {
+      loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''));
+    } else {
+      document.getElementById('filter-region').value = '11';
+      searchFacilities();
+    }
+    loadReviews();
+  })();
 </script>
 </body>
 </html>

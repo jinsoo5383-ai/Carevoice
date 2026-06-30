@@ -247,13 +247,16 @@ app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
   }
 
   try {
-    const [general, staff, facility, occupancy, programs, etc] = await Promise.allSettled([
+    const [general, staff, facility, occupancy, programs, etc, nonBenefit, convInstt, wlfareTool] = await Promise.allSettled([
       fetchDetailEndpoint('getGeneralSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
       fetchDetailEndpoint('getStaffSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
       fetchDetailEndpoint('getInsttSttusDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
       fetchDetailEndpoint('getAceptncNmprDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
       fetchDetailEndpoint('getProgramSttusDetailInfoList02', serviceKey, longTermAdminSym, adminPttnCd, true),
-      fetchDetailEndpoint('getInsttEtcDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false)
+      fetchDetailEndpoint('getInsttEtcDetailInfoItem02', serviceKey, longTermAdminSym, adminPttnCd, false),
+      fetchDetailEndpoint('getNonBenefitSttusDetailInfoList02', serviceKey, longTermAdminSym, adminPttnCd, true),
+      fetchDetailEndpoint('getConvInsttDetailInfoList02', serviceKey, longTermAdminSym, adminPttnCd, true),
+      fetchDetailEndpoint('getWlfareToolDetailInfoList02', serviceKey, longTermAdminSym, adminPttnCd, true)
     ]);
 
     const g = general.status === 'fulfilled' ? general.value : null;
@@ -262,6 +265,9 @@ app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
     const o = occupancy.status === 'fulfilled' ? occupancy.value : null;
     const p = programs.status === 'fulfilled' ? programs.value : [];
     const e = etc.status === 'fulfilled' ? etc.value : null;
+    const nb = nonBenefit.status === 'fulfilled' ? nonBenefit.value : [];
+    const ci = convInstt.status === 'fulfilled' ? convInstt.value : [];
+    const wt = wlfareTool.status === 'fulfilled' ? wlfareTool.value : [];
 
     // 전화번호 조합
     let phone = '';
@@ -325,7 +331,26 @@ app.get('/api/facilities/detail/:longTermAdminSym', async (req, res) => {
 
       homepage: (e && e.hmpgAddr && e.hmpgAddr !== '없음') ? e.hmpgAddr : '',
       parking: (e && e.pkngEquip) || '',
-      transportation: (e && e.tfMth) || ''
+      transportation: (e && e.tfMth) || '',
+
+      nonBenefits: (nb || []).map(item => ({
+        name: item.nbnefBzClsfNm || item.itemNm || '항목',
+        price: item.nbnefAmt || item.amt || '',
+        basis: item.calcBasiCn || item.calcBass || '',
+        date: item.regDt ? formatYmdServer(item.regDt) : ''
+      })),
+
+      convInstts: (ci || []).map(item => ({
+        name: item.convAdminNm || item.cnvnInsttNm || '협약기관',
+        period: [item.convStrtDt, item.convEndDt].filter(Boolean).map(formatYmdServer).join(' ~ ')
+      })),
+
+      welfareTools: (wt || []).map(item => ({
+        name: item.eqpmnNm || item.itemNm || '복지용구',
+        maker: item.mnftcr || '',
+        model: item.modelNm || '',
+        usage: item.useNm || ''
+      }))
     };
 
     res.json({ item: result });
