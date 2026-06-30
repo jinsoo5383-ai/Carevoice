@@ -1123,8 +1123,44 @@
       body.innerHTML = renderFacilityDetailHtml(data.item, { adminNm: fallbackName, adminPttnCd });
       currentDetailFacilityName = data.item.adminNm || fallbackName;
       loadDetailReviews(currentDetailFacilityName);
+      loadFacilityLocation(currentDetailFacilityName, data.item.siDoNm);
     } catch (err) {
       body.innerHTML = '<div class="facility-notice">상세 정보를 불러오는 중 오류가 발생했어요.</div>';
+    }
+  }
+
+  async function loadFacilityLocation(name, region) {
+    const addrEl = document.getElementById('detail-address-line');
+    const mapWrap = document.getElementById('detail-map-wrap');
+    if (!addrEl) return;
+
+    try {
+      const params = new URLSearchParams({ name });
+      if (region) params.append('region', region);
+      const res = await fetch(`/api/facilities/location?${params}`);
+      const data = await res.json();
+
+      if (!data.found) {
+        addrEl.innerHTML = '';
+        if (mapWrap) mapWrap.innerHTML = '<div class="detail-empty-note">위치 정보를 찾지 못했어요.</div>';
+        return;
+      }
+
+      addrEl.innerHTML = `📍 ${data.address}`;
+
+      if (mapWrap) {
+        if (data.mapImageUrl) {
+          mapWrap.innerHTML = `
+            <img src="${data.mapImageUrl}" alt="위치 지도" style="width:100%; border-radius:10px; display:block;" />
+            ${data.directionsUrl ? `<a href="${data.directionsUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="display:inline-block; margin-top:8px; text-decoration:none;">🧭 네이버지도에서 길찾기</a>` : ''}
+          `;
+        } else if (data.directionsUrl) {
+          mapWrap.innerHTML = `<a href="${data.directionsUrl}" target="_blank" rel="noopener noreferrer" class="action-btn" style="display:inline-block; text-decoration:none;">🧭 네이버지도에서 길찾기</a>`;
+        }
+      }
+    } catch (err) {
+      addrEl.innerHTML = '';
+      if (mapWrap) mapWrap.innerHTML = '<div class="detail-empty-note">위치 정보를 불러오지 못했어요.</div>';
     }
   }
 
@@ -1218,7 +1254,6 @@
 
     const contactLines = [];
     if (d.phone) contactLines.push(`📞 ${d.phone}`);
-    if (d.siDoNm) contactLines.push(`📍 ${d.siDoNm}`);
     if (d.registeredDate) contactLines.push(`기관지정일 ${d.registeredDate}`);
     if (d.homepage) {
       const url = /^https?:\/\//.test(d.homepage) ? d.homepage : `https://${d.homepage}`;
@@ -1244,6 +1279,7 @@
             <span class="facility-type-tag ${type.cls}">${type.label}</span>
           </div>
           <div class="detail-contact-row">
+            <div id="detail-address-line">📍 주소 확인 중...</div>
             ${contactLines.map(l => `<div>${l}</div>`).join('')}
           </div>
         </div>
@@ -1251,6 +1287,11 @@
         <div class="detail-section">
           <div class="detail-section-title">${isResidential ? '입소 현황' : '이용 현황'}</div>
           ${occupancyHtml}
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-section-title">위치</div>
+          <div id="detail-map-wrap" class="detail-empty-note">지도를 불러오는 중입니다...</div>
         </div>
 
         <div class="detail-section">

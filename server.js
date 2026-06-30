@@ -259,6 +259,102 @@ function adminTypeInfoServer(code) {
   return map[code] || { label: '재가/복지기관' };
 }
 
+// ===== 네이버 검색 + 지도 연동 =====
+const NAVER_SEARCH_CLIENT_ID = 'TdN68xax6fpQkH12uins';
+const NAVER_SEARCH_CLIENT_SECRET = 'QpAGL0wFKj';
+const NCP_MAPS_CLIENT_ID = 'sbg4s24ek6';
+const NCP_MAPS_CLIENT_SECRET = 'vtIvmi9NOIZD4ylAaMUwlD4REKBObNYA36IBGWC3';
+
+function stripHtmlTags(str) {
+  return (str || '').replace(/<[^>]*>/g, '');
+}
+
+// 시설명(+지역힌트)으로 네이버 지역검색을 호출해 가장 그럴듯한 주소/전화번호를 찾음
+async function searchNaverLocal(query) {
+  const params = new URLSearchParams({ query, display: 5, sort: 'random' });
+  const url = `https://openapi.naver.com/v1/search/local.json?${params}`;
+  const response = await fetch(url, {
+    headers: {
+      'X-Naver-Client-Id': NAVER_SEARCH_CLIENT_ID,
+      'X-Naver-Client-Secret': NAVER_SEARCH_CLIENT_SECRET
+    }
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data.items || data.items.length === 0) return null;
+
+  const top = data.items[0];
+  return {
+    name: stripHtmlTags(top.title),
+    address: top.roadAddress || top.address || '',
+    phone: top.telephone || '',
+    mapx: top.mapx, // 카텍 좌표계 (보정 필요)
+    mapy: top.mapy
+  };
+}
+
+// 주소 문자열로 NCP Geocoding을 호출해 위도/경도를 받음
+async function geocodeAddress(address) {
+  if (!address) return null;
+  const params = new URLSearchParams({ query: address });
+  const url = `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?${params}`;
+  const response = await fetch(url, {
+    headers: {
+      'x-ncp-apigw-api-key-id': NCP_MAPS_CLIENT_ID,
+      'x-ncp-apigw-api-key': NCP_MAPS_CLIENT_SECRET
+    }
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data.addresses || data.addresses.length === 0) return null;
+  const top = data.addresses[0];
+  return {
+    roadAddress: top.roadAddress || '',
+    jibunAddress: top.jibunAddress || '',
+    lat: top.y,
+    lng: top.x
+  };
+}
+
+function staticMapUrl(lat, lng) {
+  const params = new URLSearchParams({
+    'w': 600,
+    'h': 300,
+    'center': `${lng},${lat}`,
+    'level': 16,
+    'markers': `type:d|size:mid|pos:${lng} ${lat}`
+  });
+  return `https://maps.apigw.ntruss.com/map-static/v2/raster?${params}&X-NCP-APIGW-API-KEY-ID=${NCP_MAPS_CLIENT_ID}&X-NCP-APIGW-API-KEY=${NCP_MAPS_CLIENT_SECRET}`;
+}
+
+// 시설명 + 시도명을 조합해 주소/좌표/지도이미지/길찾기링크를 한 번에 조회
+app.get('/api/facilities/location', async (req, res) => {
+  const { name, region } = req.query;
+  if (!name) return res.status(400).json({ error: '시설명(name)이 필요합니다.' });
+
+  try {
+    const localResult = await searchNaverLocal(region ? `${region} ${name}` : name);
+    if (!localResult || !localResult.address) {
+      return res.json({ found: false });
+    }
+
+    const geo = await geocodeAddress(localResult.address);
+
+    const result = {
+      found: true,
+      address: (geo && geo.roadAddress) || localResult.address,
+      phone: localResult.phone || '',
+      mapImageUrl: geo ? staticMapUrl(geo.lat, geo.lng) : null,
+      directionsUrl: geo ? `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}` : null
+    };
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '위치 정보를 불러오는데 실패했습니다.' });
+  }
+});
+
 // 단일 item(배열 아님) 응답 파서: <item>...</item> 하나만 있는 응답용
 function parseXmlSingleItem(xml) {
   const match = xml.match(/<item>([\s\S]*?)<\/item>/);
