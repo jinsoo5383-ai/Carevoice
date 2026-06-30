@@ -482,6 +482,23 @@
       flex-shrink: 0;
     }
 
+    .facility-card-grade-badge {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+      padding: 2px 7px;
+      border-radius: 9px;
+      vertical-align: middle;
+      background: var(--primary);
+    }
+    .facility-card-grade-badge.grade-A { background: #2D6A4F; }
+    .facility-card-grade-badge.grade-B { background: #52B788; }
+    .facility-card-grade-badge.grade-C { background: #F4A261; }
+    .facility-card-grade-badge.grade-D { background: #E76F00; }
+    .facility-card-grade-badge.grade-E { background: #E63946; }
+
     .facility-notice {
       text-align: center;
       padding: 24px;
@@ -1587,10 +1604,14 @@
           }).join('')
         : `<span class="facility-type-tag ${adminTypeInfo(item.adminPttnCd).cls}">${adminTypeInfo(item.adminPttnCd).label}</span>`;
 
+      const gradeBadge = item.grade
+        ? `<span class="facility-card-grade-badge grade-${item.grade}" title="평가등급 ${item.grade} (총점 ${item.totalScore}점)">${item.grade}등급</span>`
+        : '';
+
       return `
         <div class="facility-card" onclick="openFacilityDetail('${item.longTermAdminSym}')" style="cursor:pointer;" id="fcard-${item.longTermAdminSym}">
           <div class="facility-card-info">
-            <div class="facility-card-name">${item.adminNm}</div>
+            <div class="facility-card-name">${item.adminNm}${gradeBadge}</div>
             <div class="facility-card-meta">
               ${serviceTags}
               ${regionTag}

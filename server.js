@@ -241,7 +241,13 @@ function groupByFacility(items) {
     const key = item.longTermAdminSym;
     const type = adminTypeInfoServer(item.adminPttnCd);
     if (!map.has(key)) {
-      map.set(key, { ...item, services: [{ code: item.adminPttnCd, label: type.label }] });
+      const ev = evaluationData[key];
+      map.set(key, {
+        ...item,
+        services: [{ code: item.adminPttnCd, label: type.label }],
+        grade: ev ? ev.grade : null,
+        totalScore: ev ? ev.totalScore : null
+      });
     } else {
       const existing = map.get(key);
       if (!existing.services.some(s => s.code === item.adminPttnCd)) {
