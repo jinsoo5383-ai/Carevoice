@@ -88,7 +88,7 @@ app.post('/api/reviews/:id/report', (req, res) => {
   res.json({ success: true });
 });
 
-// 간단한 XML 파서 (item들을 객체 배열로 변환)
+// 간단한 XML 파서
 function parseXmlItems(xml) {
   const items = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
@@ -108,27 +108,60 @@ function parseXmlItems(xml) {
   return { items, totalCount };
 }
 
+// 전국 17개 시도 코드 (법정동 코드 기준)
+const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','43','44','46','47','48','50','51','52'];
+
 // 요양기관 검색 API (건보공단 공공데이터)
+// region 파라미터가 없으면 keyword로 전국(17개 시도)을 순회 검색합니다.
 app.get('/api/facilities/search', async (req, res) => {
   const { keyword, region, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
 
   try {
-    const params = new URLSearchParams({
-      ServiceKey: serviceKey,
-      pageNo: page,
-      numOfRows: 10
-    });
+    // 지역이 지정된 경우: 해당 지역만 검색 (페이지네이션 그대로 사용)
+    if (region) {
+      const params = new URLSearchParams({
+        ServiceKey: serviceKey,
+        pageNo: page,
+        numOfRows: 10,
+        siDoCd: region
+      });
+      if (keyword) params.append('adminNm', keyword);
 
-    if (keyword) params.append('adminNm', keyword);
-    if (region) params.append('siDoCd', region);
+      const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+      const response = await fetch(url);
+      const xmlText = await response.text();
+      const { items, totalCount } = parseXmlItems(xmlText);
+      return res.json({ items, totalCount, page: Number(page) });
+    }
 
-    const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
-    const response = await fetch(url);
-    const xmlText = await response.text();
+    // 지역이 지정되지 않은 경우: keyword가 있어야 전국 순회 검색 (시도코드 필수라서)
+    if (!keyword) {
+      return res.json({ items: [], totalCount: 0, page: Number(page), notice: '검색어 또는 지역을 입력해주세요.' });
+    }
 
-    const { items, totalCount } = parseXmlItems(xmlText);
-    res.json({ items, totalCount, page: Number(page) });
+    let allItems = [];
+    for (const siDoCd of SIDO_CODES) {
+      const params = new URLSearchParams({
+        ServiceKey: serviceKey,
+        pageNo: 1,
+        numOfRows: 20,
+        siDoCd,
+        adminNm: keyword
+      });
+      const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+      try {
+        const response = await fetch(url);
+        const xmlText = await response.text();
+        const { items } = parseXmlItems(xmlText);
+        allItems = allItems.concat(items);
+      } catch (innerErr) {
+        // 개별 지역 실패는 무시하고 계속 진행
+        console.error(`siDoCd ${siDoCd} 검색 실패:`, innerErr.message);
+      }
+    }
+
+    res.json({ items: allItems, totalCount: allItems.length, page: 1 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '요양기관 데이터를 불러오는데 실패했습니다.' });

@@ -411,6 +411,89 @@
       color: var(--text-muted);
     }
 
+    /* 시설 카드 */
+    .facility-card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .facility-card-info { min-width: 0; }
+
+    .facility-card-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .facility-card-meta {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .facility-card-badge {
+      background: var(--bg);
+      color: var(--primary);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .facility-card-date {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .facility-card-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .facility-notice {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 13px;
+      background: var(--white);
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      margin-bottom: 12px;
+    }
+
+    .facility-type-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .facility-type-tag.home { background: #FFF3E0; color: #E76F00; }
+    .facility-type-tag.visit { background: #E3F2FD; color: #1565C0; }
+    .facility-type-tag.day { background: #F3E5F5; color: #7B1FA2; }
+    .facility-type-tag.etc { background: var(--bg); color: var(--primary); }
+
     .empty-icon { font-size: 48px; margin-bottom: 16px; }
     .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .empty-desc { font-size: 14px; line-height: 1.6; }
@@ -637,42 +720,48 @@
 
 <div class="search-section">
   <div class="search-row">
-    <input type="text" class="search-input" id="search-input" placeholder="요양원, 요양병원 이름 검색..." />
-    <button class="search-btn" onclick="search()">검색</button>
+    <input type="text" class="search-input" id="search-input" placeholder="요양원, 요양병원 이름 검색... (지역 선택 권장)" />
+    <button class="search-btn" onclick="searchFacilities()">검색</button>
   </div>
   <div class="filter-row">
     <select class="filter-select" id="filter-type" onchange="search()">
-      <option value="">전체 시설</option>
+      <option value="">전체 시설(후기)</option>
       <option value="요양원">요양원</option>
       <option value="요양병원">요양병원</option>
       <option value="주야간보호">주야간보호</option>
       <option value="방문요양">방문요양</option>
     </select>
-    <select class="filter-select" id="filter-region" onchange="search()">
+    <select class="filter-select" id="filter-region" onchange="searchFacilities()">
       <option value="">전국</option>
-      <option value="서울">서울</option>
-      <option value="경기">경기</option>
-      <option value="인천">인천</option>
-      <option value="부산">부산</option>
-      <option value="대구">대구</option>
-      <option value="광주">광주</option>
-      <option value="대전">대전</option>
-      <option value="울산">울산</option>
-      <option value="세종">세종</option>
-      <option value="강원">강원</option>
-      <option value="충북">충북</option>
-      <option value="충남">충남</option>
-      <option value="전북">전북</option>
-      <option value="전남">전남</option>
-      <option value="경북">경북</option>
-      <option value="경남">경남</option>
-      <option value="제주">제주</option>
+      <option value="11">서울</option>
+      <option value="26">부산</option>
+      <option value="27">대구</option>
+      <option value="28">인천</option>
+      <option value="29">광주</option>
+      <option value="30">대전</option>
+      <option value="31">울산</option>
+      <option value="36">세종</option>
+      <option value="41">경기</option>
+      <option value="43">충북</option>
+      <option value="44">충남</option>
+      <option value="46">전남</option>
+      <option value="47">경북</option>
+      <option value="48">경남</option>
+      <option value="50">제주</option>
+      <option value="51">강원</option>
+      <option value="52">전북</option>
     </select>
   </div>
 </div>
 
 <div class="main">
   <div class="section-header">
+    <span class="section-title">요양시설 검색 결과</span>
+    <span class="review-count" id="facility-result-count"></span>
+  </div>
+  <div id="facilities-container"></div>
+
+  <div class="section-header" style="margin-top:32px;">
     <span class="section-title">최근 후기</span>
     <span class="review-count" id="result-count"></span>
   </div>
@@ -912,13 +1001,98 @@
     currentQuery = {
       facility_name: document.getElementById('search-input').value,
       facility_type: document.getElementById('filter-type').value,
-      region: document.getElementById('filter-region').value
+      region: ''
     };
     loadReviews();
   }
 
+  // 기관유형코드 → 표시용 분류
+  function adminTypeInfo(code) {
+    const map = {
+      'A04': { label: '요양원(시설급여)', cls: 'home' },
+      'A03': { label: '요양병원', cls: 'home' },
+      'C01': { label: '방문요양', cls: 'visit' },
+      'C02': { label: '방문목욕', cls: 'visit' },
+      'C04': { label: '방문간호', cls: 'visit' },
+      'C05': { label: '주야간보호', cls: 'day' },
+      'C06': { label: '단기보호', cls: 'day' }
+    };
+    return map[code] || { label: '재가/복지기관', cls: 'etc' };
+  }
+
+  async function searchFacilities() {
+    const keyword = document.getElementById('search-input').value.trim();
+    const region = document.getElementById('filter-region').value;
+    const container = document.getElementById('facilities-container');
+    const countEl = document.getElementById('facility-result-count');
+
+    if (!keyword && !region) {
+      container.innerHTML = '';
+      countEl.textContent = '';
+      return;
+    }
+
+    container.innerHTML = '<div class="facility-notice">검색 중입니다...</div>';
+
+    try {
+      const params = new URLSearchParams();
+      if (keyword) params.append('keyword', keyword);
+      if (region) params.append('region', region);
+
+      const res = await fetch(`/api/facilities/search?${params}`);
+      const data = await res.json();
+
+      if (data.notice) {
+        container.innerHTML = `<div class="facility-notice">${data.notice}</div>`;
+        countEl.textContent = '';
+        return;
+      }
+
+      countEl.textContent = `총 ${data.totalCount.toLocaleString()}개`;
+
+      if (!data.items || data.items.length === 0) {
+        container.innerHTML = `<div class="facility-notice">검색 결과가 없어요. 지역을 선택하거나 시설명을 다시 확인해주세요.</div>`;
+        return;
+      }
+
+      container.innerHTML = data.items.slice(0, 30).map(item => {
+        const type = adminTypeInfo(item.adminPttnCd);
+        return `
+          <div class="facility-card">
+            <div class="facility-card-info">
+              <div class="facility-card-name">${item.adminNm}</div>
+              <div class="facility-card-meta">
+                <span class="facility-type-tag ${type.cls}">${type.label}</span>
+                <span class="facility-card-date">지정일 ${formatYmd(item.longTermPeribRgtDt)}</span>
+              </div>
+            </div>
+            <button class="facility-card-btn" onclick="goWriteReviewFor('${item.adminNm.replace(/'/g, "\\'")}')">후기 보기</button>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      container.innerHTML = '<div class="facility-notice">검색 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.</div>';
+    }
+  }
+
+  function formatYmd(str) {
+    if (!str || str.length !== 8) return '-';
+    return `${str.slice(0,4)}.${str.slice(4,6)}.${str.slice(6,8)}`;
+  }
+
+  function goWriteReviewFor(name) {
+    document.getElementById('search-input').value = name;
+    currentQuery = { facility_name: name };
+    loadReviews();
+    document.getElementById('f-name').value = name;
+    window.scrollTo({ top: document.querySelector('.main').offsetTop - 60, behavior: 'smooth' });
+  }
+
+  // 초기 로딩
+  loadReviews();
+
   document.getElementById('search-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') search();
+    if (e.key === 'Enter') searchFacilities();
   });
 
   async function loadReviews() {
