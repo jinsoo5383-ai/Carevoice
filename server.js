@@ -429,13 +429,18 @@ app.get('/api/facilities/blogs', async (req, res) => {
 
     const normalize = (s) => stripHtmlTags(s || '').replace(/\s+/g, '');
     const targetName = normalize(name);
+    const jobPostingKeywords = ['채용', '구인', '구직', '모집공고', '직원모집', '근무자모집', '알바모집', '채용공고', '잡코리아', '사람인'];
 
     const items = (data.items || [])
       .filter(item => {
         const title = normalize(item.title);
         const desc = normalize(item.description);
         // 시설명 전체 문자열이 제목 또는 본문에 그대로 포함된 경우만 통과
-        return title.includes(targetName) || desc.includes(targetName);
+        const nameMatched = title.includes(targetName) || desc.includes(targetName);
+        if (!nameMatched) return false;
+        // 채용/구인구직 관련 글은 이용자 정보가 아니므로 제외
+        const isJobPosting = jobPostingKeywords.some(kw => title.includes(kw) || desc.includes(kw));
+        return !isJobPosting;
       })
       .slice(0, 5)
       .map(item => ({
