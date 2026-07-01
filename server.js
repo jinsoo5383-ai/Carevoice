@@ -181,6 +181,25 @@ async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
 // 요양기관 검색 API (건보공단 공공데이터)
 // - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
 // - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
+// 홈 화면 추천시설: 평가등급 A + 총점 높은 순 상위 N개 (매 요청마다 무작위로 섞어 다양성 확보)
+let topRatedCache = null;
+function getTopRatedFacilities() {
+  if (topRatedCache) return topRatedCache;
+  const list = Object.entries(evaluationData)
+    .filter(([, v]) => v.grade === 'A' && v.name)
+    .map(([code, v]) => ({ code, name: v.name, grade: v.grade, totalScore: v.totalScore }))
+    .sort((a, b) => Number(b.totalScore) - Number(a.totalScore))
+    .slice(0, 200); // 상위 200개 중에서 매번 무작위로 뽑아 보여줌
+  topRatedCache = list;
+  return list;
+}
+
+app.get('/api/facilities/recommended', (req, res) => {
+  const pool = getTopRatedFacilities();
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  res.json({ items: shuffled.slice(0, 10) });
+});
+
 app.get('/api/facilities/search', async (req, res) => {
   const { keyword, region, sigungu, type, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
