@@ -1,0 +1,37 @@
+From b29889f93a1e7f6f846637302adf787bc85119b6 Mon Sep 17 00:00:00 2001
+From: Jay <jay@carevoice.local>
+Date: Wed, 1 Jul 2026 12:29:42 +0000
+Subject: [PATCH] =?UTF-8?q?=EC=8B=9C=EA=B5=B0=EA=B5=AC=20=ED=8C=8C?=
+ =?UTF-8?q?=EB=9D=BC=EB=AF=B8=ED=84=B0=EB=AA=85/=EA=B0=92=20=EC=88=98?=
+ =?UTF-8?q?=EC=A0=95=20(siGunGuCd,=203=EC=9E=90=EB=A6=AC=20=EC=BD=94?=
+ =?UTF-8?q?=EB=93=9C)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 실제 API 응답 필드 확인 결과 siGunGuCd가 정확한 파라미터명이며
+  값은 5자리 전체코드가 아닌 시도코드를 제외한 3자리만 사용함
+  (예: 11590 동작구 -> 590)
+---
+ server.js | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/server.js b/server.js
+index 301eeb3..f149385 100644
+--- a/server.js
++++ b/server.js
+@@ -192,8 +192,9 @@ app.get('/api/facilities/search', async (req, res) => {
+       });
+       if (keyword) params.append('adminNm', keyword);
+       if (sigungu) {
+-        params.append('signguCd', sigungu);
+-        params.append('sigunguCd', sigungu);
++        // 응답 필드 siGunGuCd는 3자리(시도코드 2자리를 뺀 나머지)만 사용함 (예: 11590 동작구 → 590)
++        const sigunguSuffix = sigungu.length === 5 ? sigungu.slice(2) : sigungu;
++        params.append('siGunGuCd', sigunguSuffix);
+       }
+ 
+       const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+-- 
+2.43.0
+

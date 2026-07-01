@@ -192,8 +192,9 @@ app.get('/api/facilities/search', async (req, res) => {
       });
       if (keyword) params.append('adminNm', keyword);
       if (sigungu) {
-        params.append('signguCd', sigungu);
-        params.append('sigunguCd', sigungu);
+        // 응답 필드 siGunGuCd는 3자리(시도코드 2자리를 뺀 나머지)만 사용함 (예: 11590 동작구 → 590)
+        const sigunguSuffix = sigungu.length === 5 ? sigungu.slice(2) : sigungu;
+        params.append('siGunGuCd', sigunguSuffix);
       }
 
       const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
