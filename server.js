@@ -224,10 +224,14 @@ app.get('/api/facilities/recommended', async (req, res) => {
     const withGrade = items
       .map(it => {
         const ev = evaluationData[it.longTermAdminSym];
-        return ev ? {
+        if (!ev) return null;
+        const bjdongSido = SIDO_TO_BJDONG[it.siDoCd] || it.siDoCd;
+        const sigunguEntry = (sigunguData[bjdongSido] || []).find(s => s.code.endsWith(it.siGunGuCd));
+        return {
           code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore,
-          adminPttnCd: it.adminPttnCd, siDoCd: it.siDoCd
-        } : null;
+          adminPttnCd: it.adminPttnCd, siDoCd: it.siDoCd,
+          regionLabel: [SIDO_NAMES[it.siDoCd], sigunguEntry ? sigunguEntry.name : ''].filter(Boolean).join(' ')
+        };
       })
       .filter(Boolean);
 

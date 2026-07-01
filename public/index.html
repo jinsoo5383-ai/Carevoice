@@ -256,6 +256,16 @@
       margin-bottom: 10px;
       opacity: 0.85;
     }
+    .recommend-item-region {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--primary);
+      background: #eaf4ee;
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
     .recommend-item-name {
       font-size: 13px;
       font-weight: 600;
@@ -2050,9 +2060,11 @@
         const onclick = (item.adminPttnCd && item.siDoCd)
           ? `navigateToFacility('${item.code}','${item.adminPttnCd}','${nameEsc}','${item.siDoCd}')`
           : `searchByRecommendedName('${nameEsc}')`;
+        const regionTag = item.regionLabel ? `<div class="recommend-item-region">${item.regionLabel}</div>` : '';
         return `
         <div class="recommend-item-card" onclick="${onclick}">
           <div class="recommend-item-thumb">🏥</div>
+          ${regionTag}
           <div class="recommend-item-name">${item.name}</div>
           <div class="recommend-item-score">${item.grade}등급 · ${item.totalScore}점</div>
         </div>
