@@ -213,6 +213,19 @@
     .sido-path.active {
       fill: var(--primary);
     }
+    .sigungu-label {
+      font-size: 8px;
+      font-family: inherit;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      fill: #3d4a40;
+      paint-order: stroke fill;
+      stroke: var(--white);
+      stroke-width: 2.2px;
+      stroke-linejoin: round;
+      pointer-events: none;
+      user-select: none;
+    }
 
     /* 메인 */
     .main {
@@ -1919,6 +1932,8 @@
     svg.setAttribute('viewBox', sidoInfo.viewBox);
     svg.innerHTML = sidoInfo.paths.map(p =>
       `<path class="sido-path" data-sigungu="${p.code}" d="${p.d}" onclick="selectSigunguFromMap('${code}','${p.code}')"><title>${p.name}</title></path>`
+    ).join('') + sidoInfo.paths.map(p =>
+      `<text class="sigungu-label" x="${p.lx}" y="${p.ly}">${p.name}</text>`
     ).join('');
   }
 
@@ -2268,6 +2283,18 @@
     const d = new Date(str);
     return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
   }
+
+  // ESC 키: 확대된 지도면 전국 지도로, 전국 지도가 열려있으면 지도 패널 닫기 (단계적 뒤로가기)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const zoomView = document.getElementById('sido-zoom-view');
+    const mapWrap = document.getElementById('region-map-wrap');
+    if (zoomView.style.display !== 'none') {
+      showNationalMap();
+    } else if (mapWrap.style.display !== 'none') {
+      toggleRegionMap();
+    }
+  });
 
   // 초기 로딩: URL에 상세 페이지 파라미터가 있으면 바로 상세로, 없으면 서울 지역 기본 목록
   (function initPage() {
