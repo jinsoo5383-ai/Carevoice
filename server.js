@@ -304,7 +304,8 @@ async function searchNaverLocal(query) {
     name: stripHtmlTags(top.title),
     address: top.roadAddress || top.address || '',
     phone: top.telephone || '',
-    mapx: top.mapx, // 카텍 좌표계 (보정 필요)
+    link: top.link || '',
+    mapx: top.mapx,
     mapy: top.mapy
   };
 }
@@ -366,7 +367,9 @@ app.get('/api/facilities/location', async (req, res) => {
       directionsUrl: geo
         ? `https://map.naver.com/p/directions/-/${geo.lng},${geo.lat},${encodeURIComponent(localResult.name)}/-/walk`
         : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`,
-      naverMapViewUrl: `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`
+      naverMapViewUrl: (localResult.link && localResult.link.includes('naver'))
+        ? localResult.link
+        : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`
     };
 
     res.json(result);
