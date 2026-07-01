@@ -366,9 +366,7 @@ app.get('/api/facilities/location', async (req, res) => {
       directionsUrl: geo
         ? `https://map.naver.com/p/directions/-/${geo.lng},${geo.lat},${encodeURIComponent(localResult.name)}/-/walk`
         : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`,
-      naverMapViewUrl: geo
-        ? `https://map.naver.com/p/entry/place/search?c=${geo.lng},${geo.lat},17,0,0,0,dh&query=${encodeURIComponent(localResult.name)}`
-        : `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`
+      naverMapViewUrl: `https://map.naver.com/p/search/${encodeURIComponent(localResult.name)}`
     };
 
     res.json(result);
