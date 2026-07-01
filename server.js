@@ -182,16 +182,52 @@ async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
 // - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
 // - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
 // 홈 화면 추천시설: 지역 지정 시 해당 지역 내에서, 없으면 전국에서 평가등급 높은 순 무작위 추천
-let topRatedCache = null;
-function getTopRatedFacilities() {
-  if (topRatedCache) return topRatedCache;
-  const list = Object.entries(evaluationData)
-    .filter(([, v]) => v.grade === 'A' && v.name)
-    .map(([code, v]) => ({ code, name: v.name, grade: v.grade, totalScore: v.totalScore }))
-    .sort((a, b) => Number(b.totalScore) - Number(a.totalScore))
-    .slice(0, 200); // 상위 200개 중에서 매번 무작위로 뽑아 보여줌
-  topRatedCache = list;
-  return list;
+// item에 adminPttnCd/siDoCd를 항상 포함시켜 클릭 시 재검색 없이 바로 상세페이지로 이동 가능하게 함
+function enrichWithGrade(items) {
+  return items
+    .map(it => {
+      const ev = evaluationData[it.longTermAdminSym];
+      if (!ev) return null;
+      const bjdongSido = SIDO_TO_BJDONG[it.siDoCd] || it.siDoCd;
+      const sigunguEntry = (sigunguData[bjdongSido] || []).find(s => s.code.endsWith(it.siGunGuCd));
+      return {
+        code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore,
+        adminPttnCd: it.adminPttnCd, siDoCd: it.siDoCd,
+        regionLabel: [SIDO_NAMES[it.siDoCd], sigunguEntry ? sigunguEntry.name : ''].filter(Boolean).join(' ')
+      };
+    })
+    .filter(Boolean);
+}
+
+function dedupeAndRankByGrade(withGrade) {
+  const uniqueMap = new Map();
+  withGrade.forEach(it => { if (!uniqueMap.has(it.code)) uniqueMap.set(it.code, it); });
+  let pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A');
+  if (pool.length < 4) {
+    pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A' || it.grade === 'B');
+  }
+  pool.sort((a, b) => Number(b.totalScore) - Number(a.totalScore));
+  return pool;
+}
+
+// 전국 추천 풀: 17개 시도를 병렬로 조회해(시도당 30건) 평가등급 좋은 곳만 추려 캐시함
+let nationwideTopRatedCache = null;
+let nationwideTopRatedCacheTime = 0;
+async function getNationwideTopRatedPool(serviceKey) {
+  const ONE_HOUR = 60 * 60 * 1000;
+  if (nationwideTopRatedCache && (Date.now() - nationwideTopRatedCacheTime) < ONE_HOUR) {
+    return nationwideTopRatedCache;
+  }
+  const results = await Promise.allSettled(
+    SIDO_CODES.map(siDoCd => fetchSido(serviceKey, siDoCd, '', 30))
+  );
+  let allItems = [];
+  results.forEach(r => { if (r.status === 'fulfilled') allItems = allItems.concat(r.value); });
+
+  const pool = dedupeAndRankByGrade(enrichWithGrade(allItems)).slice(0, 200);
+  nationwideTopRatedCache = pool;
+  nationwideTopRatedCacheTime = Date.now();
+  return pool;
 }
 
 app.get('/api/facilities/recommended', async (req, res) => {
@@ -199,9 +235,14 @@ app.get('/api/facilities/recommended', async (req, res) => {
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
 
   if (!region) {
-    const pool = getTopRatedFacilities();
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    return res.json({ items: shuffled.slice(0, 10) });
+    try {
+      const pool = await getNationwideTopRatedPool(serviceKey);
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      return res.json({ items: shuffled.slice(0, 10) });
+    } catch (err) {
+      console.error('추천시설(전국) 조회 실패:', err.message);
+      return res.json({ items: [] });
+    }
   }
 
   try {
@@ -221,29 +262,7 @@ app.get('/api/facilities/recommended', async (req, res) => {
     const xmlText = await response.text();
     const { items } = parseXmlItems(xmlText);
 
-    const withGrade = items
-      .map(it => {
-        const ev = evaluationData[it.longTermAdminSym];
-        if (!ev) return null;
-        const bjdongSido = SIDO_TO_BJDONG[it.siDoCd] || it.siDoCd;
-        const sigunguEntry = (sigunguData[bjdongSido] || []).find(s => s.code.endsWith(it.siGunGuCd));
-        return {
-          code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore,
-          adminPttnCd: it.adminPttnCd, siDoCd: it.siDoCd,
-          regionLabel: [SIDO_NAMES[it.siDoCd], sigunguEntry ? sigunguEntry.name : ''].filter(Boolean).join(' ')
-        };
-      })
-      .filter(Boolean);
-
-    // 중복 제거 (같은 기관이 서비스유형별로 여러 row로 나올 수 있음)
-    const uniqueMap = new Map();
-    withGrade.forEach(it => { if (!uniqueMap.has(it.code)) uniqueMap.set(it.code, it); });
-    let pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A');
-    if (pool.length < 4) {
-      // A등급이 너무 적으면 B등급까지 포함
-      pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A' || it.grade === 'B');
-    }
-    pool.sort((a, b) => Number(b.totalScore) - Number(a.totalScore));
+    const pool = dedupeAndRankByGrade(enrichWithGrade(items));
 
     const shuffled = [...pool.slice(0, 30)].sort(() => Math.random() - 0.5);
     res.json({ items: shuffled.slice(0, 10) });
