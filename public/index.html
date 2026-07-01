@@ -244,11 +244,11 @@
       transition: max-width 0.15s;
     }
     .content-flex.map-open {
-      max-width: 1180px;
+      max-width: 1280px;
     }
     #region-map-wrap {
       flex: 0 0 auto;
-      width: 380px;
+      width: 480px;
       margin-top: 12px;
       position: sticky;
       top: 12px;
@@ -1911,6 +1911,14 @@
           if (data.sigunguCode) sigunguSelect.value = data.sigunguCode;
         }
 
+        openRegionMapPanel();
+        await zoomToSido(data.sidoCode);
+        if (data.sigunguCode) {
+          document.querySelectorAll('#sido-zoom-svg .sido-path').forEach(el => {
+            el.classList.toggle('active', el.getAttribute('data-sigungu') === data.sigunguCode);
+          });
+        }
+
         showToast(`${data.sidoName} ${data.sigunguName || ''} 기준으로 검색했어요.`, 'success');
         searchFacilities();
       } catch (err) {
@@ -1931,6 +1939,12 @@
   }
 
   // 지도 패널 표시/숨김
+  function openRegionMapPanel() {
+    const wrap = document.getElementById('region-map-wrap');
+    wrap.style.display = '';
+    document.getElementById('content-flex').classList.add('map-open');
+  }
+
   function toggleRegionMap() {
     const wrap = document.getElementById('region-map-wrap');
     const isHidden = wrap.style.display === 'none';
@@ -2006,7 +2020,7 @@
   }
 
   // 시도가 바뀌면 시군구 목록을 다시 불러와 드롭다운을 채움
-  async function onRegionChange() {
+  async function onRegionChange(userInitiated = true) {
     const region = document.getElementById('filter-region').value;
     const sigunguSelect = document.getElementById('filter-sigungu');
     highlightMapSido(region);
@@ -2017,6 +2031,11 @@
       showNationalMap();
       searchFacilities();
       return;
+    }
+
+    if (userInitiated) {
+      openRegionMapPanel();
+      zoomToSido(region);
     }
 
     try {
@@ -2346,7 +2365,7 @@
       loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''), params.get('region'));
     } else {
       document.getElementById('filter-region').value = '11';
-      onRegionChange();
+      onRegionChange(false);
     }
   })();
 </script>
