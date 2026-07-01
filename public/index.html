@@ -245,17 +245,17 @@
       transition: max-width 0.15s;
     }
     .content-flex.map-open {
-      max-width: 1280px;
+      max-width: 1420px;
     }
     #region-map-wrap {
       flex: 0 0 auto;
-      width: 480px;
+      width: 620px;
       margin-top: 12px;
       position: sticky;
       top: 12px;
     }
     #region-map-wrap .sigungu-label {
-      font-size: 10px;
+      font-size: 12px;
     }
     #results-main {
       flex: 1 1 auto;
@@ -1119,7 +1119,7 @@
 </div>
 
 <div class="content-flex" id="content-flex">
-  <div id="region-map-wrap" style="display:none;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
+  <div id="region-map-wrap" style="display:none;"><div style="max-width:620px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
   <div id="national-map-view">
   <svg id="region-map-svg" viewBox="0 0 520 640" style="width:100%; height:auto; display:block;">
 <path class="sido-path" data-sido="26" data-name="부산" d="M339.7,384.1 L338.9,384.7 L339.7,384.1 Z M329.9,383.3 L331.7,386.0 L329.7,391.6 L327.0,384.7 L329.9,383.3 Z M332.5,382.9 L334.7,383.4 L332.5,382.9 Z M330.6,382.4 L332.3,383.7 L330.6,382.4 Z M337.0,382.4 L336.1,383.0 L337.0,382.4 Z M352.5,381.9 L351.7,382.5 L352.5,381.9 Z M349.5,379.7 L352.2,385.1 L347.3,381.4 L349.5,379.7 Z M370.0,349.7 L372.1,354.0 L369.9,356.9 L366.9,356.9 L366.3,361.5 L364.3,362.8 L366.1,363.0 L366.1,364.4 L363.4,368.0 L363.6,370.9 L361.5,371.5 L360.8,373.7 L357.2,374.5 L354.1,370.1 L356.0,373.8 L353.9,376.1 L355.5,378.0 L355.2,380.2 L350.9,379.6 L350.5,377.5 L348.7,377.5 L348.2,379.3 L345.7,379.8 L346.7,381.5 L345.8,384.8 L343.8,381.7 L344.6,385.3 L342.7,384.0 L341.6,387.0 L340.6,379.2 L339.3,381.8 L338.7,378.8 L336.9,382.1 L335.4,382.1 L336.3,378.0 L335.4,377.6 L334.5,382.1 L330.2,381.1 L332.1,379.5 L331.1,375.4 L336.0,374.5 L336.4,370.3 L344.4,368.6 L348.1,362.0 L356.2,356.4 L357.6,353.6 L361.5,353.9 L364.9,349.5 L370.0,349.7 Z" onclick="selectSidoFromMap('26')"><title>부산</title></path>
@@ -1139,14 +1139,14 @@
 <path class="sido-path" data-sido="11" data-name="서울" d="M178.5,110.3 L182.3,111.3 L183.8,114.4 L184.4,123.2 L188.1,124.5 L186.1,127.7 L187.0,131.7 L185.4,134.0 L178.9,136.0 L175.5,132.5 L164.8,133.6 L158.4,130.3 L157.9,125.0 L154.1,125.5 L156.1,120.8 L158.6,118.6 L163.2,119.4 L166.0,113.9 L170.8,113.2 L175.6,109.8 L178.5,110.3 Z" onclick="selectSidoFromMap('11')"><title>서울</title></path>
 <path class="sido-path" data-sido="31" data-name="울산" d="M356.5,318.8 L365.7,321.2 L365.6,324.5 L367.9,326.2 L371.6,326.5 L373.2,323.9 L380.3,326.5 L383.6,325.8 L384.1,328.7 L382.5,336.4 L381.3,336.9 L382.3,337.5 L381.2,338.4 L382.5,338.6 L381.6,339.8 L379.0,340.6 L378.0,335.6 L374.3,332.7 L377.4,336.0 L377.4,337.6 L375.5,337.4 L377.9,339.9 L375.3,341.9 L376.2,343.0 L372.5,339.5 L374.6,344.2 L376.0,343.1 L373.8,350.3 L375.2,352.9 L372.1,354.0 L369.8,349.0 L365.4,349.4 L363.8,346.4 L358.7,344.7 L351.3,336.6 L345.9,336.6 L347.6,330.0 L346.4,327.7 L350.6,327.0 L350.3,321.8 L356.5,318.8 Z" onclick="selectSidoFromMap('31')"><title>울산</title></path>
     <circle class="sido-path sejong-dot" data-sido="36" data-name="세종" cx="272" cy="330" r="7" onclick="selectSidoFromMap('36')"><title>세종</title></circle>
-<text class="sigungu-label" x="173" y="124">서울</text><text class="sigungu-label" x="352" y="368">부산</text><text class="sigungu-label" x="308" y="308">대구</text><text class="sigungu-label" x="142" y="128">인천</text><text class="sigungu-label" x="161" y="376">광주</text><text class="sigungu-label" x="206" y="251">대전</text><text class="sigungu-label" x="365" y="334">울산</text><text class="sigungu-label" x="272" y="330">세종</text><text class="sigungu-label" x="189" y="128">경기</text><text class="sigungu-label" x="243" y="211">충북</text><text class="sigungu-label" x="162" y="230">충남</text><text class="sigungu-label" x="171" y="397">전남</text><text class="sigungu-label" x="322" y="252">경북</text><text class="sigungu-label" x="282" y="354">경남</text><text class="sigungu-label" x="136" y="560">제주</text><text class="sigungu-label" x="283" y="104">강원</text><text class="sigungu-label" x="187" y="317">전북</text>
+<text class="sigungu-label" x="178" y="108">서울</text><text class="sigungu-label" x="352" y="368">부산</text><text class="sigungu-label" x="308" y="308">대구</text><text class="sigungu-label" x="120" y="148">인천</text><text class="sigungu-label" x="161" y="376">광주</text><text class="sigungu-label" x="206" y="251">대전</text><text class="sigungu-label" x="373" y="315">울산</text><text class="sigungu-label" x="272" y="330">세종</text><text class="sigungu-label" x="220" y="165">경기</text><text class="sigungu-label" x="243" y="211">충북</text><text class="sigungu-label" x="162" y="230">충남</text><text class="sigungu-label" x="171" y="397">전남</text><text class="sigungu-label" x="322" y="252">경북</text><text class="sigungu-label" x="282" y="354">경남</text><text class="sigungu-label" x="136" y="560">제주</text><text class="sigungu-label" x="283" y="104">강원</text><text class="sigungu-label" x="187" y="317">전북</text>
   </svg>
   <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역을 클릭하면 해당 시도로 확대돼요</div>
   </div>
   <div id="sido-zoom-view" style="display:none;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
       <button class="action-btn" onclick="showNationalMap()">← 전체보기</button>
-      <span id="zoom-sido-label" style="font-weight:600; font-size:14px;"></span>
+      <span id="zoom-sido-label" style="font-weight:700; font-size:18px; color:var(--primary);"></span>
       <span style="width:70px;"></span>
     </div>
     <svg id="sido-zoom-svg" viewBox="0 0 420 460" style="width:100%; height:auto; display:block;"></svg>
