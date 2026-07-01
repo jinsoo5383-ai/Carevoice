@@ -141,21 +141,25 @@ function parseXmlItems(xml) {
   return { items, totalCount };
 }
 
-// 전국 17개 시도 코드 (법정동 코드 기준)
-// 주의: 강원(42), 전북(45)이 기존에 51/52로 잘못 매핑되어 있던 버그를 수정함
-// (존재하지 않는 시도코드로 조회되어 강원/전북 검색이 항상 빈 결과를 반환하던 문제)
-const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','42','43','44','45','46','47','48','50'];
+// 전국 17개 시도 코드
+// 주의: 이 공공API는 표준 법정동코드 체계를 따르지 않고 자체 코드를 씀
+// (실측 결과: 강원=51, 전북=52 / 42, 45는 이 API에서 0건 반환됨 - 표준코드 아님)
+const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','43','44','46','47','48','50','51','52'];
 const SIDO_NAMES = {
   '11':'서울','26':'부산','27':'대구','28':'인천','29':'광주','30':'대전',
-  '31':'울산','36':'세종','41':'경기','42':'강원','43':'충북','44':'충남',
-  '45':'전북','46':'전남','47':'경북','48':'경남','50':'제주'
+  '31':'울산','36':'세종','41':'경기','43':'충북','44':'충남','46':'전남',
+  '47':'경북','48':'경남','50':'제주','51':'강원','52':'전북'
 };
+// 시군구 코드 데이터(sigungu.json)는 표준 법정동코드 기준(강원=42, 전북=45)으로 만들어져 있어서
+// 이 API용 시도코드(51,52)를 표준 법정동코드로 변환해 조회함
+const SIDO_TO_BJDONG = { '51': '42', '52': '45' };
 
 // 시도코드로 시군구 목록 조회
 app.get('/api/regions/sigungu', (req, res) => {
   const { sido } = req.query;
-  if (!sido || !sigunguData[sido]) return res.json({ items: [] });
-  res.json({ items: sigunguData[sido] });
+  const bjdongSido = SIDO_TO_BJDONG[sido] || sido;
+  if (!sido || !sigunguData[bjdongSido]) return res.json({ items: [] });
+  res.json({ items: sigunguData[bjdongSido] });
 });
 
 async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
