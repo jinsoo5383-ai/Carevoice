@@ -224,7 +224,10 @@ app.get('/api/facilities/recommended', async (req, res) => {
     const withGrade = items
       .map(it => {
         const ev = evaluationData[it.longTermAdminSym];
-        return ev ? { code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore } : null;
+        return ev ? {
+          code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore,
+          adminPttnCd: it.adminPttnCd, siDoCd: it.siDoCd
+        } : null;
       })
       .filter(Boolean);
 

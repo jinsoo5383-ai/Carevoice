@@ -2045,20 +2045,26 @@
         : '';
       titleEl.textContent = regionLabel ? `⭐ ${regionLabel} 평가 우수 시설` : '⭐ 평가 A등급 우수 시설';
 
-      scroll.innerHTML = data.items.map(item => `
-        <div class="recommend-item-card" onclick="searchByRecommendedName('${item.name.replace(/'/g, "\\'")}')">
+      scroll.innerHTML = data.items.map(item => {
+        const nameEsc = item.name.replace(/'/g, "\\'");
+        const onclick = (item.adminPttnCd && item.siDoCd)
+          ? `navigateToFacility('${item.code}','${item.adminPttnCd}','${nameEsc}','${item.siDoCd}')`
+          : `searchByRecommendedName('${nameEsc}')`;
+        return `
+        <div class="recommend-item-card" onclick="${onclick}">
           <div class="recommend-item-thumb">🏥</div>
           <div class="recommend-item-name">${item.name}</div>
           <div class="recommend-item-score">${item.grade}등급 · ${item.totalScore}점</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       section.style.display = '';
     } catch (err) {
       section.style.display = 'none';
     }
   }
 
-  // 추천시설 카드 클릭 시 해당 이름으로 전국 검색
+  // 추천시설 카드 클릭 시 해당 이름으로 전국 검색 (지역/유형 정보가 없는 전국 추천일 때만 사용되는 대체 경로)
   function searchByRecommendedName(name) {
     document.getElementById('search-input').value = name;
     document.getElementById('filter-region').value = '';
