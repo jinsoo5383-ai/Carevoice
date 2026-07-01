@@ -181,7 +181,7 @@ async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
 // 요양기관 검색 API (건보공단 공공데이터)
 // - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
 // - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
-// 홈 화면 추천시설: 평가등급 A + 총점 높은 순 상위 N개 (매 요청마다 무작위로 섞어 다양성 확보)
+// 홈 화면 추천시설: 지역 지정 시 해당 지역 내에서, 없으면 전국에서 평가등급 높은 순 무작위 추천
 let topRatedCache = null;
 function getTopRatedFacilities() {
   if (topRatedCache) return topRatedCache;
@@ -194,10 +194,56 @@ function getTopRatedFacilities() {
   return list;
 }
 
-app.get('/api/facilities/recommended', (req, res) => {
-  const pool = getTopRatedFacilities();
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  res.json({ items: shuffled.slice(0, 10) });
+app.get('/api/facilities/recommended', async (req, res) => {
+  const { region, sigungu } = req.query;
+  const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
+
+  if (!region) {
+    const pool = getTopRatedFacilities();
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    return res.json({ items: shuffled.slice(0, 10) });
+  }
+
+  try {
+    // 해당 지역의 실제 시설 목록을 넉넉히 가져와서(최대 100건) 그중 평가등급 좋은 곳을 무작위 추천
+    const params = new URLSearchParams({
+      ServiceKey: serviceKey,
+      pageNo: 1,
+      numOfRows: 100,
+      siDoCd: region
+    });
+    if (sigungu) {
+      const sigunguSuffix = sigungu.length === 5 ? sigungu.slice(2) : sigungu;
+      params.append('siGunGuCd', sigunguSuffix);
+    }
+    const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+    const { items } = parseXmlItems(xmlText);
+
+    const withGrade = items
+      .map(it => {
+        const ev = evaluationData[it.longTermAdminSym];
+        return ev ? { code: it.longTermAdminSym, name: it.adminNm, grade: ev.grade, totalScore: ev.totalScore } : null;
+      })
+      .filter(Boolean);
+
+    // 중복 제거 (같은 기관이 서비스유형별로 여러 row로 나올 수 있음)
+    const uniqueMap = new Map();
+    withGrade.forEach(it => { if (!uniqueMap.has(it.code)) uniqueMap.set(it.code, it); });
+    let pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A');
+    if (pool.length < 4) {
+      // A등급이 너무 적으면 B등급까지 포함
+      pool = Array.from(uniqueMap.values()).filter(it => it.grade === 'A' || it.grade === 'B');
+    }
+    pool.sort((a, b) => Number(b.totalScore) - Number(a.totalScore));
+
+    const shuffled = [...pool.slice(0, 30)].sort(() => Math.random() - 0.5);
+    res.json({ items: shuffled.slice(0, 10) });
+  } catch (err) {
+    console.error('추천시설(지역) 조회 실패:', err.message);
+    res.json({ items: [] });
+  }
 });
 
 app.get('/api/facilities/search', async (req, res) => {

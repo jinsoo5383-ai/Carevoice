@@ -1272,7 +1272,7 @@
 
 <div class="recommend-section" id="recommend-section" style="display:none;">
   <div class="recommend-header">
-    <span class="recommend-title">⭐ 평가 A등급 우수 시설</span>
+    <span class="recommend-title" id="recommend-title-text">⭐ 평가 A등급 우수 시설</span>
   </div>
   <div class="recommend-scroll" id="recommend-scroll"></div>
 </div>
@@ -2027,16 +2027,29 @@
   async function loadRecommendedHomeFacilities() {
     const section = document.getElementById('recommend-section');
     const scroll = document.getElementById('recommend-scroll');
+    const titleEl = document.getElementById('recommend-title-text');
     try {
-      const res = await fetch('/api/facilities/recommended');
+      const params = new URLSearchParams();
+      if (facilityRegion) params.append('region', facilityRegion);
+      if (facilityRegion && facilitySigungu) params.append('sigungu', facilitySigungu);
+
+      const res = await fetch(`/api/facilities/recommended?${params}`);
       const data = await res.json();
-      if (!data.items || data.items.length === 0) return;
+      if (!data.items || data.items.length === 0) {
+        section.style.display = facilityRegion ? 'none' : section.style.display;
+        return;
+      }
+
+      const regionLabel = facilityRegion
+        ? `${SIDO_NAME_MAP[facilityRegion] || ''} ${sigunguCache[facilityRegion]?.find(s => s.code === facilitySigungu)?.name || ''}`.trim()
+        : '';
+      titleEl.textContent = regionLabel ? `⭐ ${regionLabel} 평가 우수 시설` : '⭐ 평가 A등급 우수 시설';
 
       scroll.innerHTML = data.items.map(item => `
         <div class="recommend-item-card" onclick="searchByRecommendedName('${item.name.replace(/'/g, "\\'")}')">
           <div class="recommend-item-thumb">🏥</div>
           <div class="recommend-item-name">${item.name}</div>
-          <div class="recommend-item-score">A등급 · ${item.totalScore}점</div>
+          <div class="recommend-item-score">${item.grade}등급 · ${item.totalScore}점</div>
         </div>
       `).join('');
       section.style.display = '';
@@ -2353,6 +2366,7 @@
       facilityRegion = document.getElementById('filter-region').value;
       facilitySigungu = document.getElementById('filter-sigungu').value;
       facilityPage = 1;
+      loadRecommendedHomeFacilities();
     } else {
       facilityPage = targetPage;
     }
@@ -2581,7 +2595,6 @@
     } else {
       openRegionMapPanel();
       searchFacilities();
-      loadRecommendedHomeFacilities();
     }
   })();
 </script>
