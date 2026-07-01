@@ -371,7 +371,82 @@ function staticMapUrl(lat, lng) {
   return `https://maps.apigw.ntruss.com/map-static/v2/raster?${params}&X-NCP-APIGW-API-KEY-ID=${NCP_MAPS_CLIENT_ID}&X-NCP-APIGW-API-KEY=${NCP_MAPS_CLIENT_SECRET}`;
 }
 
+// 위경도 -> 법정동 주소 (NCP Reverse Geocoding)
+async function reverseGeocode(lat, lng) {
+  const params = new URLSearchParams({ coords: `${lng},${lat}`, output: 'json', orders: 'legalcode' });
+  const url = `https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc?${params}`;
+  const response = await fetch(url, {
+    headers: {
+      'x-ncp-apigw-api-key-id': NCP_MAPS_CLIENT_ID,
+      'x-ncp-apigw-api-key': NCP_MAPS_CLIENT_SECRET
+    }
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  const result = data.results && data.results[0];
+  if (!result) return null;
+  const area1 = result.region.area1 && result.region.area1.name; // 시도
+  const area2 = result.region.area2 && result.region.area2.name; // 시군구
+  const area3 = result.region.area3 && result.region.area3.name; // 읍면동
+  return { area1, area2, area3 };
+}
+
+// 이 API가 쓰는 시도코드용 이름 (원본 SIDO_NAMES와 별개로, NCP가 돌려주는 정식 명칭 매칭용)
+const SIDO_FULL_NAMES = {
+  '11':'서울특별시','26':'부산광역시','27':'대구광역시','28':'인천광역시','29':'광주광역시','30':'대전광역시',
+  '31':'울산광역시','36':'세종특별자치시','41':'경기도','43':'충청북도','44':'충청남도','46':'전라남도',
+  '47':'경상북도','48':'경상남도','50':'제주특별자치도','51':'강원특별자치도','52':'전북특별자치도'
+};
+
+// NCP가 돌려준 시도명(area1)으로 우리 시도코드를 찾음
+function matchSidoCode(area1) {
+  if (!area1) return null;
+  for (const code of Object.keys(SIDO_FULL_NAMES)) {
+    const full = SIDO_FULL_NAMES[code];
+    const short = SIDO_NAMES[code];
+    if (area1 === full || area1.startsWith(short) || full.startsWith(area1)) return code;
+  }
+  return null;
+}
+
+// NCP가 돌려준 시군구명(area2)으로 우리 시군구코드를 찾음 (표준 법정동코드 기준 sigungu.json에서 탐색)
+function matchSigunguCode(sidoCode, area2) {
+  if (!area2) return null;
+  const bjdongSido = SIDO_TO_BJDONG[sidoCode] || sidoCode;
+  const list = sigunguData[bjdongSido] || [];
+  let found = list.find(it => it.name === area2);
+  if (!found) found = list.find(it => area2.includes(it.name) || it.name.includes(area2));
+  return found || null;
+}
+
 // 시설명 + 시도명을 조합해 주소/좌표/지도이미지/길찾기링크를 한 번에 조회
+// 위경도로 시도/시군구 코드 조회 (내 주변 시설 찾기)
+app.get('/api/geocode/reverse', async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: '위경도(lat, lng)가 필요합니다.' });
+
+  try {
+    const geo = await reverseGeocode(lat, lng);
+    if (!geo || !geo.area1) return res.json({ found: false });
+
+    const sidoCode = matchSidoCode(geo.area1);
+    if (!sidoCode) return res.json({ found: false });
+
+    const sigungu = matchSigunguCode(sidoCode, geo.area2);
+
+    res.json({
+      found: true,
+      sidoCode,
+      sidoName: SIDO_NAMES[sidoCode],
+      sigunguCode: sigungu ? sigungu.code : null,
+      sigunguName: sigungu ? sigungu.name : (geo.area2 || null)
+    });
+  } catch (err) {
+    console.error('역지오코딩 실패:', err.message);
+    res.status(500).json({ error: '위치 확인에 실패했어요.' });
+  }
+});
+
 app.get('/api/facilities/location', async (req, res) => {
   const { name, region } = req.query;
   if (!name) return res.status(400).json({ error: '시설명(name)이 필요합니다.' });

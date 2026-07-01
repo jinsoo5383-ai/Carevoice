@@ -1058,6 +1058,12 @@
       <option value="">전체</option>
     </select>
     <button class="filter-select" id="map-toggle-btn" onclick="toggleRegionMap()" style="cursor:pointer;">🗺 지도에서 찾기</button>
+    <button class="filter-select" id="near-me-btn" onclick="findNearMe()" style="cursor:pointer;">📍 내 주변</button>
+    <select class="filter-select" id="filter-sort" onchange="applySortAndRender()">
+      <option value="default">기본순</option>
+      <option value="grade">평가등급 높은순</option>
+      <option value="score">평가점수 높은순</option>
+    </select>
   </div>
   <div id="region-map-wrap" style="display:none; margin-top:12px;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
   <svg id="region-map-svg" viewBox="0 0 520 640" style="width:100%; height:auto; display:block;">
@@ -1778,8 +1784,86 @@
   let facilityKeyword = '';
   let facilityRegion = '';
   let facilitySigungu = '';
+  let currentPageItems = [];
   let sigunguCache = {}; // sido code -> [{code, name}]
   let facilityDataMap = {}; // longTermAdminSym -> item
+
+  // 평가등급 순서 (A가 가장 좋음)
+  const GRADE_ORDER = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 };
+
+  function sortItems(items) {
+    const sortBy = document.getElementById('filter-sort').value;
+    const copy = [...items];
+    if (sortBy === 'grade') {
+      copy.sort((a, b) => (GRADE_ORDER[a.grade] ?? 99) - (GRADE_ORDER[b.grade] ?? 99));
+    } else if (sortBy === 'score') {
+      copy.sort((a, b) => (Number(b.totalScore) || -1) - (Number(a.totalScore) || -1));
+    }
+    return copy;
+  }
+
+  // 정렬기준 변경 시, 현재 불러온 페이지 내에서만 재정렬 (건보공단 API가 정렬 옵션을 지원하지 않아 페이지 단위로만 가능)
+  function applySortAndRender() {
+    if (currentPageItems.length === 0) return;
+    renderFacilityCards(sortItems(currentPageItems), false);
+  }
+
+  // 내 주변 시설 찾기: 브라우저 위치 → 시군구 자동 감지 → 해당 지역으로 검색
+  function findNearMe() {
+    const btn = document.getElementById('near-me-btn');
+    if (!navigator.geolocation) {
+      showToast('이 브라우저에서는 위치 확인을 지원하지 않아요.', 'error');
+      return;
+    }
+    btn.textContent = '📍 위치 확인 중...';
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+        const data = await res.json();
+
+        if (!data.found) {
+          showToast('현재 위치의 지역을 확인하지 못했어요.', 'error');
+          return;
+        }
+
+        document.getElementById('filter-region').value = data.sidoCode;
+        highlightMapSido(data.sidoCode);
+
+        if (!sigunguCache[data.sidoCode]) {
+          const sgRes = await fetch(`/api/regions/sigungu?sido=${data.sidoCode}`);
+          const sgData = await sgRes.json();
+          sigunguCache[data.sidoCode] = sgData.items || [];
+        }
+        const items = sigunguCache[data.sidoCode];
+        const sigunguSelect = document.getElementById('filter-sigungu');
+        if (items.length > 0) {
+          sigunguSelect.innerHTML = '<option value="">전체</option>' +
+            items.map(it => `<option value="${it.code}">${it.name}</option>`).join('');
+          sigunguSelect.style.display = '';
+          if (data.sigunguCode) sigunguSelect.value = data.sigunguCode;
+        }
+
+        showToast(`${data.sidoName} ${data.sigunguName || ''} 기준으로 검색했어요.`, 'success');
+        searchFacilities();
+      } catch (err) {
+        showToast('위치 확인 중 오류가 발생했어요.', 'error');
+      } finally {
+        btn.textContent = '📍 내 주변';
+        btn.disabled = false;
+      }
+    }, (err) => {
+      btn.textContent = '📍 내 주변';
+      btn.disabled = false;
+      if (err.code === err.PERMISSION_DENIED) {
+        showToast('위치 접근을 허용해주셔야 내 주변 시설을 찾을 수 있어요.', 'error');
+      } else {
+        showToast('위치를 확인할 수 없어요. 잠시 후 다시 시도해주세요.', 'error');
+      }
+    });
+  }
 
   // 지도 패널 표시/숨김
   function toggleRegionMap() {
@@ -1950,7 +2034,8 @@
       facilityTotalCount = data.totalCount;
       countEl.textContent = `총 ${data.totalCount.toLocaleString()}개`;
 
-      renderFacilityCards(data.items, false);
+      currentPageItems = data.items;
+      renderFacilityCards(sortItems(currentPageItems), false);
 
       if (data.notice) {
         pagerWrap.innerHTML = `<div class="facility-notice" style="margin-top:10px;">${data.notice}</div>`;
