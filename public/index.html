@@ -1066,6 +1066,7 @@
     </select>
   </div>
   <div id="region-map-wrap" style="display:none; margin-top:12px;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
+  <div id="national-map-view">
   <svg id="region-map-svg" viewBox="0 0 520 640" style="width:100%; height:auto; display:block;">
 <path class="sido-path" data-sido="26" data-name="부산" d="M339.7,384.1 L338.9,384.7 L339.7,384.1 Z M329.9,383.3 L331.7,386.0 L329.7,391.6 L327.0,384.7 L329.9,383.3 Z M332.5,382.9 L334.7,383.4 L332.5,382.9 Z M330.6,382.4 L332.3,383.7 L330.6,382.4 Z M337.0,382.4 L336.1,383.0 L337.0,382.4 Z M352.5,381.9 L351.7,382.5 L352.5,381.9 Z M349.5,379.7 L352.2,385.1 L347.3,381.4 L349.5,379.7 Z M370.0,349.7 L372.1,354.0 L369.9,356.9 L366.9,356.9 L366.3,361.5 L364.3,362.8 L366.1,363.0 L366.1,364.4 L363.4,368.0 L363.6,370.9 L361.5,371.5 L360.8,373.7 L357.2,374.5 L354.1,370.1 L356.0,373.8 L353.9,376.1 L355.5,378.0 L355.2,380.2 L350.9,379.6 L350.5,377.5 L348.7,377.5 L348.2,379.3 L345.7,379.8 L346.7,381.5 L345.8,384.8 L343.8,381.7 L344.6,385.3 L342.7,384.0 L341.6,387.0 L340.6,379.2 L339.3,381.8 L338.7,378.8 L336.9,382.1 L335.4,382.1 L336.3,378.0 L335.4,377.6 L334.5,382.1 L330.2,381.1 L332.1,379.5 L331.1,375.4 L336.0,374.5 L336.4,370.3 L344.4,368.6 L348.1,362.0 L356.2,356.4 L357.6,353.6 L361.5,353.9 L364.9,349.5 L370.0,349.7 Z" onclick="selectSidoFromMap('26')"><title>부산</title></path>
 <path class="sido-path" data-sido="43" data-name="충북" d="M261.4,163.1 L266.6,163.2 L269.0,160.2 L274.4,158.3 L281.8,161.4 L285.7,160.7 L286.7,162.4 L281.4,166.7 L283.3,168.9 L291.9,167.5 L295.4,172.9 L304.5,171.9 L307.5,174.8 L313.1,175.9 L314.1,178.0 L313.1,179.5 L307.8,180.2 L305.9,184.1 L296.9,190.7 L294.8,195.3 L295.9,201.2 L293.4,203.5 L284.5,203.1 L279.1,197.4 L276.0,203.7 L270.5,202.8 L269.7,201.2 L267.4,204.5 L264.0,202.9 L261.1,206.8 L260.8,210.2 L263.7,213.9 L255.0,211.6 L249.3,217.2 L251.5,218.8 L251.7,222.4 L250.3,224.2 L245.6,221.3 L244.0,224.0 L241.0,224.5 L241.6,227.4 L246.2,229.0 L249.4,234.9 L246.4,237.0 L247.2,239.9 L245.8,246.9 L247.9,250.9 L244.4,255.4 L244.5,258.7 L260.1,261.7 L262.0,268.0 L257.9,267.6 L256.1,269.0 L257.0,273.0 L254.8,277.1 L254.2,281.9 L250.9,282.3 L248.7,284.9 L238.3,286.0 L231.2,284.6 L229.5,282.6 L227.9,283.9 L222.1,274.1 L222.2,266.6 L220.5,264.8 L214.5,263.8 L213.4,262.1 L214.6,254.9 L218.9,247.0 L218.4,245.8 L215.1,245.9 L214.6,241.2 L212.5,239.2 L208.9,241.0 L206.2,240.0 L205.3,237.3 L202.6,237.0 L204.0,230.6 L200.1,226.3 L197.3,226.2 L196.5,223.3 L194.3,221.8 L198.4,211.5 L200.7,210.7 L201.4,208.0 L207.3,207.4 L196.6,195.3 L199.2,191.5 L205.9,189.4 L208.0,185.2 L212.0,183.5 L214.1,180.5 L221.2,181.3 L222.4,178.5 L225.6,178.0 L228.2,169.3 L231.3,169.6 L239.0,157.6 L240.0,157.4 L243.6,167.6 L253.0,166.5 L254.0,163.6 L252.1,159.6 L256.0,157.3 L260.3,158.6 L261.4,163.1 Z" onclick="selectSidoFromMap('43')"><title>충북</title></path>
@@ -1085,7 +1086,17 @@
 <path class="sido-path" data-sido="31" data-name="울산" d="M356.5,318.8 L365.7,321.2 L365.6,324.5 L367.9,326.2 L371.6,326.5 L373.2,323.9 L380.3,326.5 L383.6,325.8 L384.1,328.7 L382.5,336.4 L381.3,336.9 L382.3,337.5 L381.2,338.4 L382.5,338.6 L381.6,339.8 L379.0,340.6 L378.0,335.6 L374.3,332.7 L377.4,336.0 L377.4,337.6 L375.5,337.4 L377.9,339.9 L375.3,341.9 L376.2,343.0 L372.5,339.5 L374.6,344.2 L376.0,343.1 L373.8,350.3 L375.2,352.9 L372.1,354.0 L369.8,349.0 L365.4,349.4 L363.8,346.4 L358.7,344.7 L351.3,336.6 L345.9,336.6 L347.6,330.0 L346.4,327.7 L350.6,327.0 L350.3,321.8 L356.5,318.8 Z" onclick="selectSidoFromMap('31')"><title>울산</title></path>
     <circle class="sido-path sejong-dot" data-sido="36" data-name="세종" cx="272" cy="330" r="7" onclick="selectSidoFromMap('36')"><title>세종</title></circle>
   </svg>
-  <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역을 클릭하면 해당 시도로 검색해요</div>
+  <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역을 클릭하면 해당 시도로 확대돼요</div>
+  </div>
+  <div id="sido-zoom-view" style="display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <button class="action-btn" onclick="showNationalMap()">← 전체보기</button>
+      <span id="zoom-sido-label" style="font-weight:600; font-size:14px;"></span>
+      <span style="width:70px;"></span>
+    </div>
+    <svg id="sido-zoom-svg" viewBox="0 0 420 460" style="width:100%; height:auto; display:block;"></svg>
+    <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역(시/군/구)을 클릭하면 바로 검색해요</div>
+  </div>
 </div></div>
 </div>
 
@@ -1873,12 +1884,62 @@
     if (isHidden) highlightMapSido(document.getElementById('filter-region').value);
   }
 
+  let sigunguMapData = null; // 시군구 경계 지도 데이터 (지연 로드)
+
+  async function loadSigunguMapData() {
+    if (sigunguMapData) return sigunguMapData;
+    try {
+      const res = await fetch('/sigungu-map.json');
+      sigunguMapData = await res.json();
+    } catch (err) {
+      sigunguMapData = {};
+    }
+    return sigunguMapData;
+  }
+
   // 지도에서 시도를 클릭했을 때
-  function selectSidoFromMap(code) {
+  async function selectSidoFromMap(code) {
     document.getElementById('filter-region').value = code;
     highlightMapSido(code);
     onRegionChange();
+    await zoomToSido(code);
   }
+
+  // 시도 확대 지도를 그림 (시군구 클릭용)
+  async function zoomToSido(code) {
+    const mapData = await loadSigunguMapData();
+    const sidoInfo = mapData[code];
+    if (!sidoInfo || !sidoInfo.paths || sidoInfo.paths.length === 0) return; // 세종처럼 시군구가 없으면 확대하지 않음
+
+    document.getElementById('national-map-view').style.display = 'none';
+    document.getElementById('sido-zoom-view').style.display = '';
+    document.getElementById('zoom-sido-label').textContent = SIDO_NAME_MAP[code] || '';
+
+    const svg = document.getElementById('sido-zoom-svg');
+    svg.setAttribute('viewBox', sidoInfo.viewBox);
+    svg.innerHTML = sidoInfo.paths.map(p =>
+      `<path class="sido-path" data-sigungu="${p.code}" d="${p.d}" onclick="selectSigunguFromMap('${code}','${p.code}')"><title>${p.name}</title></path>`
+    ).join('');
+  }
+
+  function showNationalMap() {
+    document.getElementById('sido-zoom-view').style.display = 'none';
+    document.getElementById('national-map-view').style.display = '';
+  }
+
+  // 확대 지도에서 시군구를 클릭했을 때
+  function selectSigunguFromMap(sidoCode, sigunguCode) {
+    document.getElementById('filter-sigungu').value = sigunguCode;
+    document.querySelectorAll('#sido-zoom-svg .sido-path').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-sigungu') === sigunguCode);
+    });
+    searchFacilities();
+  }
+
+  const SIDO_NAME_MAP = {
+    '11':'서울','26':'부산','27':'대구','28':'인천','29':'광주','30':'대전','31':'울산','36':'세종',
+    '41':'경기','43':'충북','44':'충남','46':'전남','47':'경북','48':'경남','50':'제주','51':'강원','52':'전북'
+  };
 
   // 현재 선택된 시도를 지도에서 하이라이트
   function highlightMapSido(code) {
@@ -1896,6 +1957,7 @@
     if (!region) {
       sigunguSelect.style.display = 'none';
       sigunguSelect.innerHTML = '<option value="">전체</option>';
+      showNationalMap();
       searchFacilities();
       return;
     }
