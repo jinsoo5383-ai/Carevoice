@@ -1,0 +1,111 @@
+From 5b1a62cf0a2a85db4362633f1f78d1db1125e235 Mon Sep 17 00:00:00 2001
+From: Jay <jay@carevoice.local>
+Date: Wed, 1 Jul 2026 13:35:46 +0000
+Subject: [PATCH] =?UTF-8?q?=EC=A7=80=EB=8F=84=20=EC=97=B4=EB=A9=B4=20?=
+ =?UTF-8?q?=EA=B2=80=EC=83=89=EA=B2=B0=EA=B3=BC=EA=B0=80=20=EC=95=84?=
+ =?UTF-8?q?=EB=9E=98=EA=B0=80=20=EC=95=84=EB=8B=8C=20=EC=98=A4=EB=A5=B8?=
+ =?UTF-8?q?=EC=AA=BD=EC=97=90=20=EB=82=98=EB=9E=80=ED=9E=88=20=EB=9C=A8?=
+ =?UTF-8?q?=EB=8F=84=EB=A1=9D=20=EB=A0=88=EC=9D=B4=EC=95=84=EC=9B=83=20?=
+ =?UTF-8?q?=EB=B3=80=EA=B2=BD?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 검색결과 영역을 content-flex 컨테이너로 감싸 지도 패널과 나란히 배치
+- 지도 열림/닫힘에 따라 map-open 클래스 토글, 전체 폭 640px <-> 1180px 전환
+- 900px 이하 화면에서는 기존처럼 세로로 쌓이도록 반응형 처리
+---
+ public/index.html | 48 ++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 45 insertions(+), 3 deletions(-)
+
+diff --git a/public/index.html b/public/index.html
+index 585fa6a..784d15e 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -234,6 +234,43 @@
+       padding: 20px 16px;
+     }
+ 
++    .content-flex {
++      display: flex;
++      align-items: flex-start;
++      justify-content: center;
++      gap: 20px;
++      max-width: 640px;
++      margin: 0 auto;
++      transition: max-width 0.15s;
++    }
++    .content-flex.map-open {
++      max-width: 1180px;
++    }
++    #region-map-wrap {
++      flex: 0 0 auto;
++      width: 380px;
++      margin-top: 12px;
++      position: sticky;
++      top: 12px;
++    }
++    #region-map-wrap .sigungu-label {
++      font-size: 7px;
++    }
++    #results-main {
++      flex: 1 1 auto;
++      min-width: 0;
++    }
++    @media (max-width: 900px) {
++      .content-flex {
++        flex-direction: column;
++        align-items: stretch;
++      }
++      #region-map-wrap {
++        width: auto;
++        position: static;
++      }
++    }
++
+     .section-header {
+       display: flex;
+       justify-content: space-between;
+@@ -1078,7 +1115,10 @@
+       <option value="score">평가점수 높은순</option>
+     </select>
+   </div>
+-  <div id="region-map-wrap" style="display:none; margin-top:12px;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
++</div>
++
++<div class="content-flex" id="content-flex">
++  <div id="region-map-wrap" style="display:none;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
+   <div id="national-map-view">
+   <svg id="region-map-svg" viewBox="0 0 520 640" style="width:100%; height:auto; display:block;">
+ <path class="sido-path" data-sido="26" data-name="부산" d="M339.7,384.1 L338.9,384.7 L339.7,384.1 Z M329.9,383.3 L331.7,386.0 L329.7,391.6 L327.0,384.7 L329.9,383.3 Z M332.5,382.9 L334.7,383.4 L332.5,382.9 Z M330.6,382.4 L332.3,383.7 L330.6,382.4 Z M337.0,382.4 L336.1,383.0 L337.0,382.4 Z M352.5,381.9 L351.7,382.5 L352.5,381.9 Z M349.5,379.7 L352.2,385.1 L347.3,381.4 L349.5,379.7 Z M370.0,349.7 L372.1,354.0 L369.9,356.9 L366.9,356.9 L366.3,361.5 L364.3,362.8 L366.1,363.0 L366.1,364.4 L363.4,368.0 L363.6,370.9 L361.5,371.5 L360.8,373.7 L357.2,374.5 L354.1,370.1 L356.0,373.8 L353.9,376.1 L355.5,378.0 L355.2,380.2 L350.9,379.6 L350.5,377.5 L348.7,377.5 L348.2,379.3 L345.7,379.8 L346.7,381.5 L345.8,384.8 L343.8,381.7 L344.6,385.3 L342.7,384.0 L341.6,387.0 L340.6,379.2 L339.3,381.8 L338.7,378.8 L336.9,382.1 L335.4,382.1 L336.3,378.0 L335.4,377.6 L334.5,382.1 L330.2,381.1 L332.1,379.5 L331.1,375.4 L336.0,374.5 L336.4,370.3 L344.4,368.6 L348.1,362.0 L356.2,356.4 L357.6,353.6 L361.5,353.9 L364.9,349.5 L370.0,349.7 Z" onclick="selectSidoFromMap('26')"><title>부산</title></path>
+@@ -1111,9 +1151,8 @@
+     <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역(시/군/구)을 클릭하면 바로 검색해요</div>
+   </div>
+ </div></div>
+-</div>
+ 
+-<div class="main">
++<div class="main" id="results-main">
+   <div class="section-header">
+     <span class="section-title">요양시설 검색 결과</span>
+     <span class="review-count" id="facility-result-count"></span>
+@@ -1122,6 +1161,8 @@
+   <div id="facility-load-more-wrap" style="text-align:center; margin: 12px 0;"></div>
+ </div>
+ 
++</div><!-- /content-flex -->
++
+ </div><!-- /main-view -->
+ 
+ <!-- 시설 상세 전용 페이지 -->
+@@ -1894,6 +1935,7 @@
+     const wrap = document.getElementById('region-map-wrap');
+     const isHidden = wrap.style.display === 'none';
+     wrap.style.display = isHidden ? '' : 'none';
++    document.getElementById('content-flex').classList.toggle('map-open', isHidden);
+     if (isHidden) highlightMapSido(document.getElementById('filter-region').value);
+   }
+ 
+-- 
+2.43.0
+

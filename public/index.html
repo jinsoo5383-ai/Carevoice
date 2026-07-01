@@ -234,6 +234,43 @@
       padding: 20px 16px;
     }
 
+    .content-flex {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 20px;
+      max-width: 640px;
+      margin: 0 auto;
+      transition: max-width 0.15s;
+    }
+    .content-flex.map-open {
+      max-width: 1180px;
+    }
+    #region-map-wrap {
+      flex: 0 0 auto;
+      width: 380px;
+      margin-top: 12px;
+      position: sticky;
+      top: 12px;
+    }
+    #region-map-wrap .sigungu-label {
+      font-size: 7px;
+    }
+    #results-main {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    @media (max-width: 900px) {
+      .content-flex {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #region-map-wrap {
+        width: auto;
+        position: static;
+      }
+    }
+
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -1078,7 +1115,10 @@
       <option value="score">평가점수 높은순</option>
     </select>
   </div>
-  <div id="region-map-wrap" style="display:none; margin-top:12px;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
+</div>
+
+<div class="content-flex" id="content-flex">
+  <div id="region-map-wrap" style="display:none;"><div style="max-width:520px; margin:0 auto; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px;">
   <div id="national-map-view">
   <svg id="region-map-svg" viewBox="0 0 520 640" style="width:100%; height:auto; display:block;">
 <path class="sido-path" data-sido="26" data-name="부산" d="M339.7,384.1 L338.9,384.7 L339.7,384.1 Z M329.9,383.3 L331.7,386.0 L329.7,391.6 L327.0,384.7 L329.9,383.3 Z M332.5,382.9 L334.7,383.4 L332.5,382.9 Z M330.6,382.4 L332.3,383.7 L330.6,382.4 Z M337.0,382.4 L336.1,383.0 L337.0,382.4 Z M352.5,381.9 L351.7,382.5 L352.5,381.9 Z M349.5,379.7 L352.2,385.1 L347.3,381.4 L349.5,379.7 Z M370.0,349.7 L372.1,354.0 L369.9,356.9 L366.9,356.9 L366.3,361.5 L364.3,362.8 L366.1,363.0 L366.1,364.4 L363.4,368.0 L363.6,370.9 L361.5,371.5 L360.8,373.7 L357.2,374.5 L354.1,370.1 L356.0,373.8 L353.9,376.1 L355.5,378.0 L355.2,380.2 L350.9,379.6 L350.5,377.5 L348.7,377.5 L348.2,379.3 L345.7,379.8 L346.7,381.5 L345.8,384.8 L343.8,381.7 L344.6,385.3 L342.7,384.0 L341.6,387.0 L340.6,379.2 L339.3,381.8 L338.7,378.8 L336.9,382.1 L335.4,382.1 L336.3,378.0 L335.4,377.6 L334.5,382.1 L330.2,381.1 L332.1,379.5 L331.1,375.4 L336.0,374.5 L336.4,370.3 L344.4,368.6 L348.1,362.0 L356.2,356.4 L357.6,353.6 L361.5,353.9 L364.9,349.5 L370.0,349.7 Z" onclick="selectSidoFromMap('26')"><title>부산</title></path>
@@ -1111,9 +1151,8 @@
     <div style="text-align:center; font-size:12px; color:var(--text-muted); margin-top:6px;">지역(시/군/구)을 클릭하면 바로 검색해요</div>
   </div>
 </div></div>
-</div>
 
-<div class="main">
+<div class="main" id="results-main">
   <div class="section-header">
     <span class="section-title">요양시설 검색 결과</span>
     <span class="review-count" id="facility-result-count"></span>
@@ -1121,6 +1160,8 @@
   <div id="facilities-container"></div>
   <div id="facility-load-more-wrap" style="text-align:center; margin: 12px 0;"></div>
 </div>
+
+</div><!-- /content-flex -->
 
 </div><!-- /main-view -->
 
@@ -1894,6 +1935,7 @@
     const wrap = document.getElementById('region-map-wrap');
     const isHidden = wrap.style.display === 'none';
     wrap.style.display = isHidden ? '' : 'none';
+    document.getElementById('content-flex').classList.toggle('map-open', isHidden);
     if (isHidden) highlightMapSido(document.getElementById('filter-region').value);
   }
 
