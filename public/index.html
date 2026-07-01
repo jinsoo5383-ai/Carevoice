@@ -1020,7 +1020,7 @@
     <button class="search-btn" onclick="searchFacilities()">검색</button>
   </div>
   <div class="filter-row">
-    <select class="filter-select" id="filter-region" onchange="searchFacilities()">
+    <select class="filter-select" id="filter-region" onchange="onRegionChange()">
       <option value="">전국</option>
       <option value="11">서울</option>
       <option value="26">부산</option>
@@ -1031,14 +1031,17 @@
       <option value="31">울산</option>
       <option value="36">세종</option>
       <option value="41">경기</option>
+      <option value="42">강원</option>
       <option value="43">충북</option>
       <option value="44">충남</option>
+      <option value="45">전북</option>
       <option value="46">전남</option>
       <option value="47">경북</option>
       <option value="48">경남</option>
       <option value="50">제주</option>
-      <option value="51">강원</option>
-      <option value="52">전북</option>
+    </select>
+    <select class="filter-select" id="filter-sigungu" onchange="searchFacilities()" style="display:none;">
+      <option value="">전체</option>
     </select>
   </div>
 </div>
@@ -1737,7 +1740,43 @@
   let facilityPage = 1;
   let facilityKeyword = '';
   let facilityRegion = '';
+  let facilitySigungu = '';
+  let sigunguCache = {}; // sido code -> [{code, name}]
   let facilityDataMap = {}; // longTermAdminSym -> item
+
+  // 시도가 바뀌면 시군구 목록을 다시 불러와 드롭다운을 채움
+  async function onRegionChange() {
+    const region = document.getElementById('filter-region').value;
+    const sigunguSelect = document.getElementById('filter-sigungu');
+
+    if (!region) {
+      sigunguSelect.style.display = 'none';
+      sigunguSelect.innerHTML = '<option value="">전체</option>';
+      searchFacilities();
+      return;
+    }
+
+    try {
+      if (!sigunguCache[region]) {
+        const res = await fetch(`/api/regions/sigungu?sido=${region}`);
+        const data = await res.json();
+        sigunguCache[region] = data.items || [];
+      }
+      const items = sigunguCache[region];
+      if (items.length > 0) {
+        sigunguSelect.innerHTML = '<option value="">전체</option>' +
+          items.map(it => `<option value="${it.code}">${it.name}</option>`).join('');
+        sigunguSelect.style.display = '';
+      } else {
+        sigunguSelect.style.display = 'none';
+        sigunguSelect.innerHTML = '<option value="">전체</option>';
+      }
+    } catch (err) {
+      sigunguSelect.style.display = 'none';
+    }
+
+    searchFacilities();
+  }
 
   function renderFacilityCards(items, append) {
     const container = document.getElementById('facilities-container');
@@ -1816,6 +1855,7 @@
     if (!isPageChange) {
       facilityKeyword = document.getElementById('search-input').value.trim();
       facilityRegion = document.getElementById('filter-region').value;
+      facilitySigungu = document.getElementById('filter-sigungu').value;
       facilityPage = 1;
     } else {
       facilityPage = targetPage;
@@ -1835,6 +1875,7 @@
       const params = new URLSearchParams();
       if (facilityKeyword) params.append('keyword', facilityKeyword);
       if (facilityRegion) params.append('region', facilityRegion);
+      if (facilityRegion && facilitySigungu) params.append('sigungu', facilitySigungu);
       params.append('page', facilityPage);
 
       const res = await fetch(`/api/facilities/search?${params}`);
@@ -2029,7 +2070,7 @@
       loadFacilityDetailPage(detailId, params.get('type'), decodeURIComponent(params.get('name') || ''), params.get('region'));
     } else {
       document.getElementById('filter-region').value = '11';
-      searchFacilities();
+      onRegionChange();
     }
   })();
 </script>

@@ -23,6 +23,15 @@ try {
   console.error('평가정보 파일을 불러오지 못했습니다:', err.message);
 }
 
+// 시군구 코드 (행정표준코드, 시도코드별 시군구 목록)
+let sigunguData = {};
+try {
+  sigunguData = JSON.parse(fs.readFileSync(path.join(__dirname, 'sigungu.json'), 'utf8'));
+  console.log(`시군구 코드 로드 완료: ${Object.keys(sigunguData).length}개 시도`);
+} catch (err) {
+  console.error('시군구 코드 파일을 불러오지 못했습니다:', err.message);
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -133,12 +142,21 @@ function parseXmlItems(xml) {
 }
 
 // 전국 17개 시도 코드 (법정동 코드 기준)
-const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','43','44','46','47','48','50','51','52'];
+// 주의: 강원(42), 전북(45)이 기존에 51/52로 잘못 매핑되어 있던 버그를 수정함
+// (존재하지 않는 시도코드로 조회되어 강원/전북 검색이 항상 빈 결과를 반환하던 문제)
+const SIDO_CODES = ['11','26','27','28','29','30','31','36','41','42','43','44','45','46','47','48','50'];
 const SIDO_NAMES = {
   '11':'서울','26':'부산','27':'대구','28':'인천','29':'광주','30':'대전',
-  '31':'울산','36':'세종','41':'경기','43':'충북','44':'충남','46':'전남',
-  '47':'경북','48':'경남','50':'제주','51':'강원','52':'전북'
+  '31':'울산','36':'세종','41':'경기','42':'강원','43':'충북','44':'충남',
+  '45':'전북','46':'전남','47':'경북','48':'경남','50':'제주'
 };
+
+// 시도코드로 시군구 목록 조회
+app.get('/api/regions/sigungu', (req, res) => {
+  const { sido } = req.query;
+  if (!sido || !sigunguData[sido]) return res.json({ items: [] });
+  res.json({ items: sigunguData[sido] });
+});
 
 async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
   const params = new URLSearchParams({
@@ -160,7 +178,7 @@ async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
 // - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
 // - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
 app.get('/api/facilities/search', async (req, res) => {
-  const { keyword, region, page = 1 } = req.query;
+  const { keyword, region, sigungu, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
 
   try {
@@ -173,6 +191,10 @@ app.get('/api/facilities/search', async (req, res) => {
         siDoCd: region
       });
       if (keyword) params.append('adminNm', keyword);
+      if (sigungu) {
+        params.append('signguCd', sigungu);
+        params.append('sigunguCd', sigungu);
+      }
 
       const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
       const response = await fetch(url);
