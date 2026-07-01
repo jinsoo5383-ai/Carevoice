@@ -182,7 +182,7 @@ async function fetchSido(serviceKey, siDoCd, keyword, numOfRows) {
 // - region 지정: 해당 지역만, 서버 페이지네이션(20건씩) 그대로 사용. 키워드 없이도 동작(지역 전체 목록).
 // - region 미지정(전국): 반드시 keyword 필요. 17개 시도를 병렬로 동시 조회해 합침(정렬 기준: 시도 가나다순 → 등록일순).
 app.get('/api/facilities/search', async (req, res) => {
-  const { keyword, region, sigungu, page = 1 } = req.query;
+  const { keyword, region, sigungu, type, page = 1 } = req.query;
   const serviceKey = '54fa6a4fb68a227e04811bbe2844d5332bc4319c3105190c5e20758bc45af3ae';
 
   try {
@@ -200,6 +200,7 @@ app.get('/api/facilities/search', async (req, res) => {
         const sigunguSuffix = sigungu.length === 5 ? sigungu.slice(2) : sigungu;
         params.append('siGunGuCd', sigunguSuffix);
       }
+      if (type) params.append('adminPttnCd', type);
 
       const url = `https://apis.data.go.kr/B550928/searchLtcInsttService02/getLtcInsttSeachList02?${params}`;
       const response = await fetch(url);
